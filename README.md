@@ -1,14 +1,13 @@
-# Golf Fantasy Website
+# Golf Fantasy Backend
 
-This is a Golf Fantasy website built with Next.js, a Flask API, Firebase authentication, and MySQL storage.
+Backend API for Golf Fantasy, built with Flask.
 
-## Front End: React
-
-The front end of the Golf Fantasy website is built using Next.js, a React framework for server-side rendering and static site generation. Next.js provides a seamless development experience with features like automatic code splitting, hot module replacement, and server-side rendering.
-
-## Back End: Flask
-
-The back end of the Golf Fantasy website is built using Flask, a lightweight web framework for Python. Flask allows for easy development of RESTful APIs and provides a flexible and scalable architecture for building web applications.
+## Setup
+1. Create virtual environment: `python -m venv .venv`
+2. Activate: `source .venv/bin/activate`
+3. Install dependencies: `pip install -r requirements.txt`
+4. Create `.env` file with required environment variables
+5. Run development server: `gunicorn -c gunicorn.conf.py "run:app"`
 
 ## Firebase Authentication
 
