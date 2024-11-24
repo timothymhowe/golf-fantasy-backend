@@ -50,7 +50,6 @@ next-env.d.ts
 
 # Virtualenv
 **/src/api/env/
-**/.python-version
 
 # vscode project settings
 **/.vscode/

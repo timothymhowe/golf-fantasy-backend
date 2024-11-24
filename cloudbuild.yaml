@@ -1,0 +1,27 @@
+steps:
+  # Install dependencies
+  - name: python:3.10.13
+    entrypoint: pip
+    args: ["install", "-r", "src/api/requirements.txt", "-t", "/workspace/src/api"]
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+    - 'run'
+    - 'deploy'
+    - 'fantasy-golf-staging'  # service name
+    - '--source'
+    - 'src/api'
+    - '--region'
+    - 'us-central1'
+    - '--platform'
+    - 'managed'
+    - '--allow-unauthenticated'
+    - '--command'
+    - 'gunicorn'
+    - '--args'
+    - '--bind=:$PORT --workers=1 --threads=8 run:app'
+
+options:
+  logging: CLOUD_LOGGING_ONLY 
