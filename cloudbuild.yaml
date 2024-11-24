@@ -12,14 +12,14 @@ steps:
     - 'deploy'
     - 'fantasy-golf-staging'
     - '--source'
-    - 'src/api'
+    - '.'
     - '--region'
     - 'us-central1'
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated'
     - '--set-env-vars'
-    - 'GOOGLE_ENTRYPOINT=gunicorn --bind :$PORT --workers 1 --threads 8 run:app'
+    - 'GOOGLE_ENTRYPOINT=cd src/api && gunicorn --bind :$PORT --workers 1 --threads 8 run:app'
 
 options:
   logging: CLOUD_LOGGING_ONLY 
