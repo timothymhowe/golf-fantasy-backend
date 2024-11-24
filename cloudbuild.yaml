@@ -10,7 +10,7 @@ steps:
     args:
     - 'run'
     - 'deploy'
-    - 'fantasy-golf-staging'  # service name
+    - 'fantasy-golf-staging'
     - '--source'
     - 'src/api'
     - '--region'
@@ -18,10 +18,8 @@ steps:
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated'
-    - '--command'
-    - 'gunicorn'
-    - '--args'
-    - '--bind=:$PORT --workers=1 --threads=8 run:app'
+    - '--set-env-vars'
+    - 'GOOGLE_ENTRYPOINT=gunicorn --bind :$PORT --workers 1 --threads 8 run:app'
 
 options:
   logging: CLOUD_LOGGING_ONLY 
