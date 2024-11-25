@@ -7,19 +7,23 @@ import sqlalchemy
 
 load_dotenv()
 
-username = os.getenv('DB_USER').strip('"')
-password = os.getenv('DB_PASS').strip('"')
-database_name = os.getenv('DB_NAME').strip('"')
+def clean_env(var_name,default=None):
+    value = os.getenv(var_name,default)
+    return value.strip('"').strip("'").strip() if value else None
 
-instance_connection_prefix = os.getenv('INSTANCE_CONNECTION_PREFIX').strip('"')
-db2_name = os.getenv('DB2_NAME').strip('"')
-db2_password = os.getenv('DB2_PASS').strip('"')
+username = clean_env('DB_USER')
+password = clean_env('DB_PASS')
+database_name = clean_env('DB_NAME')
+
+instance_connection_prefix = clean_env('INSTANCE_CONNECTION_PREFIX')
+db2_name = clean_env('DB2_NAME')
+db2_password = clean_env('DB2_PASS')
 
 
 password = db2_password
 # instance_connection_name = f"{instance_connection_prefix}{db2_name}".strip("'")
 
-instance_connection_name = os.getenv('INSTANCE_CONNECTION_STRING_FULL').strip('"')
+instance_connection_name = clean_env('INSTANCE_CONNECTION_STRING_FULL')
 
 print("=== Database Connection Debug Info ===")
 print(f"Instance Connection Name FULL: {instance_connection_name}")
@@ -56,6 +60,7 @@ def getconn():
     try:
         conn = connector.connect(
             instance_connection_name,
+            
             "pymysql",
             user=username,
             password=password,
