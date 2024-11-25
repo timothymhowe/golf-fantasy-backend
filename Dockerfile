@@ -15,7 +15,7 @@ COPY src/api/ .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV PORT=5001
+ENV PORT=8080
 ENV FLASK_APP=run.py
 ENV FLASK_ENV=production
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-cloud-key.json
