@@ -23,6 +23,53 @@ The Golf Fantasy website utilizes a MySQL database for storing and managing data
 - `roles` : list of roles, permissions associated with those roles
 
 
+## Docker Setup
+
+### Prerequisites
+- Docker installed on your machine
+- `.env` file with required environment variables
+- Google Cloud service account key (`google-cloud-key.json`)
+
+### Environment Setup
+Required files in project root:
+- Dockerfile
+- .env
+- google-cloud-key.json (service account credentials)
+
+### Building and Running
+```bash
+# Build the image
+docker build -t fantasy-golf .
+
+# Run the container
+docker run -p 5001:5001 \
+  --env-file .env \
+  -v "$(pwd)/google-cloud-key.json:/app/google-cloud-key.json" \
+  fantasy-golf
+```
+
+### Key Configuration
+The Dockerfile sets up a Python environment with the following configuration:
+```dockerfile
+FROM python:3.10.13-slim
+WORKDIR /app
+ENV PORT=5001
+ENV FLASK_APP=run.py
+ENV FLASK_ENV=production
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-cloud-key.json
+```
+
+### Health Checks
+Verify the application is running correctly:
+- API Health: `GET http://localhost:5001/health`
+- Database Health: `GET http://localhost:5001/db-health`
+
+### Important Notes
+- Uses App Engine default service account for Cloud SQL access
+- Port 5001 is used instead of 5000 to avoid conflicts with macOS services
+- Gunicorn is used as the production server
+- Environment variables are loaded from .env file
+
 
 ## More Info
 

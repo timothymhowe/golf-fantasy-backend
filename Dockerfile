@@ -18,10 +18,12 @@ ENV PYTHONUNBUFFERED=1
 ENV PORT=5001
 ENV FLASK_APP=run.py
 ENV FLASK_ENV=production
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/google-cloud-key.json
 
 # Create a non-root user
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
-# Run with Gunicorn
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 run:app
+# Add debug command to check for credentials file
+CMD ls -l /app/google-cloud-key.json && \
+    exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 run:app
