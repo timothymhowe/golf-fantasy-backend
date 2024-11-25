@@ -83,3 +83,6 @@ env/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Google Cloud key
+*cloud-key.json
