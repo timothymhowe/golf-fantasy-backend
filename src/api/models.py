@@ -111,6 +111,8 @@ class Tournament(db.Model):
     Attributes:
         id (int): The unique identifier for the tournament (primary key).
         sportcontent_api_id (int): The unique identifier for the tournament in the SportContent API.
+        sportcontent_api_tour_id (int): The unique identifier for the tour in the SportContent API.
+        datagolf_id (int): The unique identifier for the tournament in the DataGolf API.
         year (int): The year of the tournament.
         tournament_name (str): The name of the tournament.
         tournament_format (str): The format of the tournament (stroke, match, etc.).
@@ -122,11 +124,15 @@ class Tournament(db.Model):
         course_name (str): The name of the course where the tournament is played.
         city (str): The city where the tournament is played.
         state (str): The state where the tournament is played.
+        latitude (str): The latitude of the tournament.
+        longitude (str): The longitude of the tournament.
+        is_major (bool): Whether the tournament is a major.
     """
 
     id = db.Column(db.Integer, primary_key=True)
     sportcontent_api_id = db.Column(db.Integer, unique=True)
     sportcontent_api_tour_id = db.Column(db.Integer, unique=False, default=2)
+    datagolf_id = db.Column(db.Integer, unique=True)
     year = db.Column(db.Integer, nullable=False)
     tournament_name = db.Column(db.String(100), nullable=False)
     tournament_format = db.Column(db.String(100), nullable=False, default="stroke")
@@ -138,6 +144,8 @@ class Tournament(db.Model):
     course_name = db.Column(db.String(100))
     city = db.Column(db.String(50), nullable=True)
     state = db.Column(db.String(50), nullable=True)
+    latitude = db.Column(db.String(10), nullable=True)
+    longitude = db.Column(db.String(10), nullable=True)
     is_major = db.Column(db.Boolean, nullable=False, default=False)
 
 
