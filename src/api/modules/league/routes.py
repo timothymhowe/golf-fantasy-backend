@@ -1,8 +1,10 @@
 from flask import Blueprint, jsonify
 from modules.authentication.auth import require_auth
 from modules.user.functions import get_league_member_ids
-from .functions import calculate_leaderboard
+from .functions import calculate_leaderboard, get_league_member_pick_history
 import logging
+
+logger = logging.getLogger(__name__)
 
 league_bp = Blueprint('league', __name__)
 
@@ -41,6 +43,7 @@ def scoreboard(uid):
                 "rank": rank,
                 "name": entry["username"],
                 "score": entry["total_points"],
+                "leagueMemberId": entry["league_member_id"],
                 "missedPicks": entry["missed_picks"]
             })
         
@@ -80,4 +83,31 @@ def check_membership(uid):
         return jsonify({
             "message": "Error checking league membership",
             "error": str(e)
+        }), 500
+
+@league_bp.route('/member/<int:league_member_id>/pick-history', methods=['GET'])
+def get_member_picks(league_member_id):
+    """Get pick history for a specific league member
+    
+    Args:
+        league_member_id: ID of the league member to get history for
+        
+    Returns:
+        JSON response with pick history or error
+    """
+    try:
+        print('Getting pick history for league member', league_member_id)
+        picks = get_league_member_pick_history(league_member_id)
+        
+        if picks is None:
+            return jsonify({
+                'error': 'No pick history found or invalid league member'
+            }), 404
+            
+        return jsonify(picks), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting pick history: {e}")
+        return jsonify({
+            'error': f'Internal server error fetching pick history: {str(e)}'
         }), 500
