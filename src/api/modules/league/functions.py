@@ -86,7 +86,7 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
             logger.warning(f"League member {league_member_id} not found")
             return None
             
-        # Get all picks with tournament results
+        # Modified query to include all tournaments
         picks_query = (db.session.query(
                 Tournament.tournament_name,
                 Tournament.start_date,
@@ -104,16 +104,20 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
             )
             .join(LeagueMemberTournamentScore, 
                 LeagueMemberTournamentScore.tournament_id == Tournament.id)
-            .join(Pick, 
+            .filter(LeagueMemberTournamentScore.league_member_id == league_member_id)
+            # Left join with Pick to include tournaments with no picks
+            .outerjoin(Pick, 
                 (Pick.tournament_id == Tournament.id) & 
                 (Pick.league_member_id == league_member_id))
-            .join(Golfer, Pick.golfer_id == Golfer.id)
+            # Left join with Golfer through Pick
+            .outerjoin(Golfer, Pick.golfer_id == Golfer.id)
+            # Left join with TournamentGolfer
             .outerjoin(TournamentGolfer,
                 (TournamentGolfer.tournament_id == Tournament.id) &
                 (TournamentGolfer.golfer_id == Golfer.id))
+            # Left join with TournamentGolferResult
             .outerjoin(TournamentGolferResult,
                 TournamentGolferResult.tournament_golfer_id == TournamentGolfer.id)
-            .filter(LeagueMemberTournamentScore.league_member_id == league_member_id)
             .order_by(Tournament.start_date.desc())
         )
         
