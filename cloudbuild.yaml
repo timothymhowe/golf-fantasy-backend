@@ -13,13 +13,20 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - '$_SERVICE_NAME'
+      - 'golf-fantasy-backend'
       - '--image'
       - 'gcr.io/$PROJECT_ID/$REPO_NAME'
       - '--region'
-      - '$_REGION'
+      - 'us-central1'
       - '--platform'
       - 'managed'
+      - '--allow-unauthenticated'
+      - '--project'
+      - '$PROJECT_ID'
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE_NAME: golf-fantasy-backend
