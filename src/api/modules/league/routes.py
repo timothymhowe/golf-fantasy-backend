@@ -44,6 +44,7 @@ def scoreboard(uid):
                 "name": entry["username"],
                 "score": entry["total_points"],
                 "leagueMemberId": entry["league_member_id"],
+                "wins":entry["wins"],
                 "missedPicks": entry["missed_picks"]
             })
         

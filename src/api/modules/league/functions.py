@@ -26,7 +26,13 @@ def calculate_leaderboard(leagueID):
                     (LeagueMemberTournamentScore.score < 0, 1),
                     else_=None
                 )
-            ).label('missed_picks')
+            ).label('missed_picks'),
+            func.count(
+                case(
+                    (LeagueMemberTournamentScore.score >= 10000, 1),
+                    else_=None
+                )
+            ).label('wins')
         )
         .join(LeagueMember, User.id == LeagueMember.user_id)
         .join(League, LeagueMember.league_id == League.id)
@@ -50,7 +56,9 @@ def calculate_leaderboard(leagueID):
         "league_name": row.league_name,
         "league_member_id": row.league_member_id,
         "total_points": int(row.total_points),
-        "missed_picks": int(row.missed_picks)
+        "missed_picks": int(row.missed_picks),
+        "wins": int(row.wins)
+        
     } for row in leaderboard]
  
 # TODO: Add caching, using firebase firestore.
