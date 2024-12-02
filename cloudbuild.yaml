@@ -13,7 +13,7 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'golf-fantasy-backend'
+      - 'fantasy-golf-staging'
       - '--image'
       - 'gcr.io/$PROJECT_ID/$REPO_NAME'
       - '--region'
@@ -29,4 +29,4 @@ options:
 
 substitutions:
   _REGION: us-central1
-  _SERVICE_NAME: golf-fantasy-backend
+  _SERVICE_NAME: fantasy-golf-staging
