@@ -9,8 +9,8 @@ from modules.admin.routes import health_bp
 
 from utils.db_connector import db, init_db
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from jobs.scheduler import update_database
+# from apscheduler.schedulers.background import BackgroundScheduler
+# from jobs.scheduler import update_database
 
 from dotenv import load_dotenv
 
@@ -42,9 +42,10 @@ def create_app():
     return app
     
 def start_scheduler():
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(func=update_database, trigger="interval", seconds=3600)
-    scheduler.start()
+    pass
+    # scheduler = BackgroundScheduler()
+    # scheduler.add_job(func=update_database, trigger="interval", seconds=3600)
+    # scheduler.start()
     
 
 load_dotenv()
