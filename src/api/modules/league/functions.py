@@ -1,10 +1,11 @@
 from models import (
-    League, LeagueMember, User, LeagueMemberTournamentScore, Tournament, Golfer, TournamentGolfer, TournamentGolferResult, Pick
+    League, LeagueMember, User, LeagueMemberTournamentScore, Tournament, Golfer, TournamentGolfer, TournamentGolferResult, Pick, Schedule, ScheduleTournament
 )
 from sqlalchemy import func,select
 from sqlalchemy.sql import case
 from utils.db_connector import db
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -76,13 +77,12 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
         - summary stats
     """
     try:
-        logger.info(f"Getting pick history for league member {league_member_id}")
-        
-        # First verify league member exists
+        # Get league member info in a single query
         member_query = (db.session.query(
                 LeagueMember,
                 User.display_name.label('user_name'),
-                League.name.label('league_name')
+                League.name.label('league_name'),
+                League.schedule_id
             )
             .join(User, LeagueMember.user_id == User.id)
             .join(League, LeagueMember.league_id == League.id)
@@ -91,80 +91,97 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
         )
         
         if not member_query:
-            logger.warning(f"League member {league_member_id} not found")
             return None
-            
-        # Modified query to include all tournaments
+
+        # Get all tournaments and their associated picks in a single query
         picks_query = (db.session.query(
+                Tournament.id,
                 Tournament.tournament_name,
                 Tournament.start_date,
                 Tournament.is_major,
+                ScheduleTournament.week_number,
+                Pick,
                 Golfer.first_name,
                 Golfer.last_name,
                 Golfer.id.label('golfer_id'),
-                Golfer.datagolf_id.label('golfer_datagolf_id'),
+                Golfer.datagolf_id,
                 TournamentGolferResult.result,
                 TournamentGolferResult.status,
                 TournamentGolferResult.score_to_par,
-                LeagueMemberTournamentScore.score.label('points'),
+                LeagueMemberTournamentScore.score,
                 LeagueMemberTournamentScore.is_no_pick,
                 LeagueMemberTournamentScore.is_duplicate_pick
             )
-            .join(LeagueMemberTournamentScore, 
-                LeagueMemberTournamentScore.tournament_id == Tournament.id)
-            .filter(LeagueMemberTournamentScore.league_member_id == league_member_id)
-            # Left join with Pick to include tournaments with no picks
+            .join(ScheduleTournament, Tournament.id == ScheduleTournament.tournament_id)
+            .filter(ScheduleTournament.schedule_id == member_query.schedule_id)
             .outerjoin(Pick, 
                 (Pick.tournament_id == Tournament.id) & 
                 (Pick.league_member_id == league_member_id))
-            # Left join with Golfer through Pick
             .outerjoin(Golfer, Pick.golfer_id == Golfer.id)
-            # Left join with TournamentGolfer
             .outerjoin(TournamentGolfer,
                 (TournamentGolfer.tournament_id == Tournament.id) &
                 (TournamentGolfer.golfer_id == Golfer.id))
-            # Left join with TournamentGolferResult
             .outerjoin(TournamentGolferResult,
                 TournamentGolferResult.tournament_golfer_id == TournamentGolfer.id)
-            .order_by(Tournament.start_date.desc())
+            .outerjoin(LeagueMemberTournamentScore,
+                (LeagueMemberTournamentScore.tournament_id == Tournament.id) &
+                (LeagueMemberTournamentScore.league_member_id == league_member_id))
+            .order_by(Tournament.start_date)
+            .all()
         )
-        
-        logger.debug(f"Generated SQL: {picks_query}")
-        picks_results = picks_query.all()
-        logger.info(f"Found {len(picks_results)} picks")
-        
+
         picks_data = []
         total_points = 0
-        
-        for row in picks_results:
-            # Convert points from cents to dollars
-            points = row.points / 100 if row.points is not None else 0
-            total_points += points
+        current_date = datetime.utcnow().date()
+
+        for tournament_data in picks_query:
+            is_future = tournament_data.start_date > current_date
             
-            pick_data = {
+            if is_future:
+                picks_data.append({
+                    'tournament': {
+                        'name': tournament_data.tournament_name,
+                        'date': tournament_data.start_date.strftime('%Y-%m-%d'),
+                        'is_major': tournament_data.is_major
+                    },
+                    'golfer': None,
+                    'result': None,
+                    'points': 0,
+                    'pick_status': {
+                        'is_no_pick': False,
+                        'is_duplicate_pick': False
+                    },
+                    'is_future': True
+                })
+                continue
+
+            points = tournament_data.score / 100 if tournament_data.score is not None else 0
+            total_points += points
+
+            picks_data.append({
                 'tournament': {
-                    'name': row.tournament_name,
-                    'date': row.start_date.strftime('%Y-%m-%d'),
-                    'is_major': row.is_major
+                    'name': tournament_data.tournament_name,
+                    'date': tournament_data.start_date.strftime('%Y-%m-%d'),
+                    'is_major': tournament_data.is_major
                 },
                 'golfer': {
-                    'name': f"{row.first_name} {row.last_name}",
-                    'id': row.golfer_id,
-                    'datagolf_id': row.golfer_datagolf_id,
+                    'name': f"{tournament_data.first_name} {tournament_data.last_name}" if tournament_data.first_name else None,
+                    'id': tournament_data.golfer_id,
+                    'datagolf_id': tournament_data.datagolf_id,
                 },
                 'result': {
-                    'result': row.result,
-                    'status': row.status,
-                    'score_to_par': row.score_to_par,
+                    'result': tournament_data.result,
+                    'status': tournament_data.status,
+                    'score_to_par': tournament_data.score_to_par,
                 },
                 'points': round(points, 2),
                 'pick_status': {
-                    'is_no_pick': row.is_no_pick,
-                    'is_duplicate_pick': row.is_duplicate_pick
-                }
-            }
-            picks_data.append(pick_data)
-            
+                    'is_no_pick': tournament_data.is_no_pick,
+                    'is_duplicate_pick': tournament_data.is_duplicate_pick
+                },
+                'is_future': False
+            })
+
         return {
             'member': {
                 'id': member_query.LeagueMember.id,
@@ -173,12 +190,12 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
             },
             'picks': picks_data,
             'summary': {
-                'total_picks': len(picks_data),
+                'total_picks': len([p for p in picks_data if not p.get('is_future', False)]),
                 'total_points': round(total_points, 2),
-                'majors_played': sum(1 for p in picks_data if p['tournament']['is_major']),
-                'missed_picks': sum(1 for p in picks_data if p['pick_status']['is_no_pick']),
-                'duplicate_picks': sum(1 for p in picks_data if p['pick_status']['is_duplicate_pick']),
-                'wins':sum(1 for p in picks_data if p['result']['result'] == '1')
+                'majors_played': sum(1 for p in picks_data if p['tournament']['is_major'] and not p.get('is_future', False)),
+                'missed_picks': sum(1 for p in picks_data if p.get('pick_status', {}).get('is_no_pick', False)),
+                'duplicate_picks': sum(1 for p in picks_data if p.get('pick_status', {}).get('is_duplicate_pick', False)),
+                'wins': sum(1 for p in picks_data if not p.get('is_future', False) and p.get('result') is not None and p['result'].get('result') == '1')
             }
         }
             

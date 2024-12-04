@@ -11,12 +11,15 @@ league_bp = Blueprint('league', __name__)
 @league_bp.route('/scoreboard')
 @require_auth
 def scoreboard(uid):
+    print("scoreboard")
     try:
         logging.info(f"Fetching scoreboard for user {uid}")
         
         # Get user's league ID
+        
         league_member_ids = get_league_member_ids(uid)
         logging.info(f"Found league member IDs: {league_member_ids}")
+        print(f"found league member ids: {league_member_ids}")
         
         if not league_member_ids:
             logging.warning(f"No leagues found for user {uid}")
@@ -26,9 +29,8 @@ def scoreboard(uid):
             }), 404
             
         # Get first league ID
-        # league_id = league_member_ids[0][1]  # Gets league_id from tuple
-        
-        league_id = 7
+        league_id = league_member_ids[0][1]  # Gets league_id from tuple
+        print(league_member_ids)
         logging.info(f"Using league ID: {league_id}")
         
         # Get leaderboard data
@@ -49,7 +51,7 @@ def scoreboard(uid):
             })
         
         logging.info(f"Formatted leaderboard: {formatted_leaderboard}")
-        
+        print(formatted_leaderboard)
         return jsonify({
             "status": "success",
             "data": {

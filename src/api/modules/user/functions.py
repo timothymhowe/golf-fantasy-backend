@@ -76,21 +76,20 @@ def submit_pick(uid, tournament_id, golfer_id):
     return None
 
 def get_league_member_ids(uid):
-    """Get the list of league member IDs for a user.
+    """Get the list of league member IDs and their associated league IDs for a user.
 
     Args:
         uid (str): The unique identifier of the user.
 
     Returns:
-        int: The league member IDs for the user.
+        list[tuple]: List of tuples containing (league_member_id, league_id) pairs.
     """
-    print("The UID: ", uid)
-
     user_stmt = select(User).where(User.firebase_id == uid)
     user_result = db.session.execute(user_stmt)
     user = user_result.fetchone()[0]
+    
     if user:
-        league_member_stmt = select(LeagueMember.id).where(LeagueMember.user_id == user.id)
+        league_member_stmt = select(LeagueMember.id, LeagueMember.league_id).where(LeagueMember.user_id == user.id)
         league_member_result = db.session.execute(league_member_stmt)
         league_member_ids = league_member_result.fetchall()
         return league_member_ids
