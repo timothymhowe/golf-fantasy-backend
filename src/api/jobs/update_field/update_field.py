@@ -1,52 +1,25 @@
-# TODO: Potentially fix these imports
-from modules.tournament.functions import get_upcoming_tournament
-from utils.db_connector import db
-from models import TournamentGolfer, Golfer
-from utils.functions.golf_id import generate_golfer_id
-from sqlalchemy import and_
-import requests
-import json
 from datetime import datetime
 from os import getenv
 from dotenv import load_dotenv
+from flask import Flask
+from utils.db_connector import db, init_db
+from models import TournamentGolfer, Golfer
+from modules.tournament.functions import get_upcoming_tournament
+from utils.functions.golf_id import generate_golfer_id
+from sqlalchemy import and_
+import requests
 
-"""
-Updates tournament field data using DataGolf API.
-More accurate and timely than SportContent API.
-Maintains historical records with is_most_recent flag.
-"""
-
-load_dotenv() 
-DATAGOLF_KEY = getenv('DATAGOLF_KEY')  
-DATAGOLF_FIELD_URL = "https://api.datagolf.com/field-updates"
-
+load_dotenv()
+DATAGOLF_KEY = getenv('DATAGOLFAPI_KEY')
+DATAGOLF_FIELD_URL = "https://feeds.datagolf.com/field-updates"
 
 def update_tournament_entries():
-    """Update tournament entries for upcoming tournament, keeping database clean
-    
-    TODO/WARNINGS:
-    1. Current implementation relies heavily on DataGolf API which may not have complete player coverage
-    2. Some players might be missing due to:
-       - Different name formats between DataGolf and our database
-       - Players not in DataGolf rankings
-       - Alternates or late additions to field
-    3. Need to implement:
-       - Better name matching logic
-       - Multiple data source integration
-       - Handling of alternates and field changes
-       - Manual override capability for missing players
-    """
-    
+    """Update tournament entries for upcoming tournament, keeping database clean"""
     upcoming_tournament = get_upcoming_tournament()
     if upcoming_tournament is None:
         print("No upcoming tournament!")
         return None
 
-    # Query the Golfer table for all golfers and their IDs
-    golfers = Golfer.query.with_entities(Golfer.id, Golfer.sportcontent_api_id).all()
-    golfer_dict = {golfer.sportcontent_api_id: golfer.id for golfer in golfers}
-    existing_ids = set(golfer_dict.values())
-    
     try:
         # Make DataGolf API request
         response = requests.get(
@@ -57,6 +30,7 @@ def update_tournament_entries():
                 "key": DATAGOLF_KEY
             }
         )
+        response.raise_for_status()  # Raise exception for bad status codes
         data = response.json()
         
         if not data.get("field"):
@@ -64,24 +38,41 @@ def update_tournament_entries():
             return None
 
         year = str(datetime.now().year)
+        current_time = datetime.utcnow()
 
+        # First, mark all existing entries as not most recent
+        TournamentGolfer.query.filter(
+            and_(
+                TournamentGolfer.tournament_id == upcoming_tournament["id"],
+                TournamentGolfer.year == year,
+            )
+        ).update({
+            TournamentGolfer.is_most_recent: False,
+            TournamentGolfer.timestamp_utc: current_time
+        })
+
+        # Process each player in the field
         for player in data["field"]:
             dg_id = player.get("dg_id")
             full_name = player["player_name"]
+            last_name, first_name = full_name.split(", ", 1)
+
             
-            # Try to find golfer by DataGolf ID first
-            existing_golfer = Golfer.query.filter_by(datagolf_id=dg_id).first()
             
-            # Fall back to name matching if no golfer found by ID
+            # Try to find golfer by DataGolf ID first, then by name
+            existing_golfer = Golfer.query.filter(
+                db.or_(
+                    Golfer.datagolf_id == dg_id,
+                    Golfer.full_name == f"{first_name} {last_name}"
+                )
+            ).first()
+            
             if not existing_golfer:
-                existing_golfer = Golfer.query.filter_by(full_name=full_name).first()
-            
-            if not existing_golfer:
-                print(f"adding golfer {full_name} to database")
-                first_name, last_name = full_name.split(" ", 1)
+                print(f"Adding golfer {full_name} to database")
+                
                 
                 new_golfer = Golfer(
-                    id=generate_golfer_id(first_name, last_name, existing_ids),
+                    id=generate_golfer_id(first_name, last_name, set()),
                     datagolf_id=dg_id,
                     first_name=first_name,
                     last_name=last_name,
@@ -89,43 +80,36 @@ def update_tournament_entries():
                 )
                 db.session.add(new_golfer)
                 db.session.commit()
-                existing_ids.add(new_golfer.id)
+                existing_golfer = new_golfer
             elif not existing_golfer.datagolf_id and dg_id:
-                # Update the DataGolf ID if we don't have one
                 existing_golfer.datagolf_id = dg_id
                 db.session.add(existing_golfer)
                 db.session.commit()
 
-        # Update tournament entries
-        TournamentGolfer.query.filter(
-            and_(
-                TournamentGolfer.tournament_id == upcoming_tournament["id"],
-                TournamentGolfer.year == year,
+            # Create new tournament golfer entry
+            tg = TournamentGolfer(
+                tournament_id=upcoming_tournament["id"],
+                golfer_id=existing_golfer.id,
+                year=year,
+                is_most_recent=True,
+                is_active=True,
+                is_alternate=False,  # Could potentially get this from DataGolf
+                is_injured=False,    # Could potentially get this from DataGolf
+                timestamp_utc=current_time
             )
-        ).update({TournamentGolfer.is_most_recent: False})
-
-        # Add new entries
-        for player in data["field"]:
-            golfer = (Golfer.query.filter_by(datagolf_id=player["dg_id"])
-                     .or_(Golfer.query.filter_by(full_name=player["player_name"]))
-                     .first())
-            
-            if golfer:
-                tg = TournamentGolfer(
-                    tournament_id=upcoming_tournament["id"],
-                    golfer_id=golfer.id,
-                    year=year,
-                    is_most_recent=True,
-                    is_active=True
-                )
-                db.session.add(tg)
+            db.session.add(tg)
 
         db.session.commit()
-        print("Tournament entries updated.")
+        print("Tournament entries updated successfully")
+        
     except Exception as e:
-        print(repr(e))
-        print("Ruh Roh.")
-
+        print(f"Error updating tournament entries: {repr(e)}")
+        db.session.rollback()
+        return None
 
 if __name__ == "__main__":
-    update_tournament_entries()
+    app = Flask(__name__)
+    init_db(app)
+    
+    with app.app_context():
+        update_tournament_entries()

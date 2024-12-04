@@ -46,6 +46,7 @@ class League(db.Model):
     name = db.Column(db.String(100), nullable=False)
     scoring_format = db.Column(db.String(100), nullable=False, default="STANDARD")
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    schedule_id = db.Column(db.int, nullable=True)
 
 
 class LeagueMember(db.Model):
