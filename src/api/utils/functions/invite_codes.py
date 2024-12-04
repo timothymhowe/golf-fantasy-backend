@@ -116,12 +116,12 @@ if __name__ == "__main__":
 
             # Get role ID
             while True:
-                role_id = input("\nEnter role ID (1: Member, 2: Commissioner): ").strip()
+                role_id = input("\nEnter role ID (2: Commissioner, 3: Member): ").strip()
                 try:
                     role_id = int(role_id)
-                    if role_id in [1, 2]:
+                    if role_id in [2, 3]:
                         break
-                    print("\nPlease enter 1 for Member or 2 for Commissioner.")
+                    print("\nPlease enter 2 for Comissioner, 3 for Member.")
                 except ValueError:
                     print("\nPlease enter a valid number.")
 
