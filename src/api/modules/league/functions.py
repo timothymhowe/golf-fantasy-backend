@@ -116,7 +116,9 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
             .filter(ScheduleTournament.schedule_id == member_query.schedule_id)
             .outerjoin(Pick, 
                 (Pick.tournament_id == Tournament.id) & 
-                (Pick.league_member_id == league_member_id))
+                (Pick.league_member_id == league_member_id) &
+                (Pick.is_most_recent == True)
+            )
             .outerjoin(Golfer, Pick.golfer_id == Golfer.id)
             .outerjoin(TournamentGolfer,
                 (TournamentGolfer.tournament_id == Tournament.id) &
@@ -125,7 +127,8 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
                 TournamentGolferResult.tournament_golfer_id == TournamentGolfer.id)
             .outerjoin(LeagueMemberTournamentScore,
                 (LeagueMemberTournamentScore.tournament_id == Tournament.id) &
-                (LeagueMemberTournamentScore.league_member_id == league_member_id))
+                (LeagueMemberTournamentScore.league_member_id == league_member_id)
+            )
             .order_by(Tournament.start_date)
             .all()
         )
