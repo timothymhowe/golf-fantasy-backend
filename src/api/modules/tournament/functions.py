@@ -108,7 +108,8 @@ def get_golfers_with_roster_and_picks(tournament_id: int, uid: str):
                 and_(
                     Golfer.id == Pick.golfer_id,
                     Pick.league_member_id == league_member_id,
-                    Pick.is_most_recent == True
+                    Pick.is_most_recent == True,
+                    Pick.tournament_id != tournament_id
                 )
             )
             .add_columns(
