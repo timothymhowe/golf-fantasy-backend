@@ -8,6 +8,58 @@ import pytz
 from modules.user.functions import get_league_member_ids
 
 
+def get_most_recent_tournament():
+    """
+    Get the most recent tournament that has started or is currently happening.
+
+    Returns:
+        _type_: _description_
+    """
+    try:
+        utc_now = datetime.now(pytz.UTC)
+        
+        # Get tournaments that might be current or recent
+        potential_tournaments = (
+            Tournament.query
+            .filter(Tournament.start_date <= utc_now.date())
+            .order_by(Tournament.start_date.desc(), Tournament.start_time.desc())
+            .limit(2)  # Get a couple to check times
+            .all()
+        )
+        
+        for tournament in potential_tournaments:
+            # Convert tournament time to UTC for comparison
+            tournament_tz = pytz.timezone(tournament.time_zone or 'America/New_York')
+            tournament_local = tournament_tz.localize(
+                datetime.combine(tournament.start_date, tournament.start_time)
+            )
+            tournament_utc = tournament_local.astimezone(pytz.UTC)
+            
+            # If this tournament hasn't started yet, skip to next one
+            if utc_now < tournament_utc:
+                continue
+                
+            return {
+                "id": tournament.id,
+                "sportcontent_api_id": tournament.sportcontent_api_id,
+                "tournament_name": tournament.tournament_name,
+                "tournament_format": tournament.tournament_format,
+                "start_date": tournament.start_date.strftime("%Y-%m-%d"),
+                "end_date": tournament.end_date.strftime("%Y-%m-%d"),
+                "start_time": tournament.start_time.strftime("%H:%M:%S") if tournament.start_time else None,
+                "time_zone": tournament.time_zone,
+                "course_name": tournament.course_name,
+                "location_raw": tournament.location_raw,
+            }
+            
+        logging.warning("No recent tournaments found")
+        return None
+        
+    except Exception as e:
+        logging.error(f"Error in get_most_recent_tournament: {str(e)}")
+        raise
+
+
 def get_upcoming_tournament():
     try:
         # Get current time in UTC
@@ -165,6 +217,3 @@ def get_golfers_with_roster_and_picks(tournament_id: int, uid: str):
         print(f"Error fetching golfer data: {str(e)}")
         return None
 
-def get_is_tournament_live():
-    pass
-    pass

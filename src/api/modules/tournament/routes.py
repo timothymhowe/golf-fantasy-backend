@@ -1,9 +1,17 @@
 from flask import Blueprint, jsonify, request
 from modules.authentication.auth import require_auth
 from .functions import (get_golfers_with_roster_and_picks, get_upcoming_roster,
-    get_upcoming_tournament)
+    get_upcoming_tournament, get_most_recent_tournament)
 
 tournament_bp = Blueprint('tournament', __name__)
+
+@tournament_bp.route('/most-recent', methods=['GET'])
+def most_recent_tournament():
+    tournament = get_most_recent_tournament()
+    if tournament is None:
+        return jsonify({'error': 'No recent tournament found'}), 404
+
+    return jsonify(tournament), 200
 
 @tournament_bp.route('/upcoming', methods=['GET'])
 def upcoming_tournament():
