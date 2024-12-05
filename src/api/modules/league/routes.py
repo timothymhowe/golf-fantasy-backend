@@ -8,35 +8,75 @@ logger = logging.getLogger(__name__)
 
 league_bp = Blueprint('league', __name__)
 
-@league_bp.route('/scoreboard')
+# TODO: make sure that user is a member of the league before doing this.  future feature bby. 
+@league_bp.route('/scoreboard/<int:league_id>', methods=['GET'])
 @require_auth
-def scoreboard(uid):
-    print("scoreboard")
+def scoreboard(uid, league_id):
+    """
+    Get the scoreboard for a specific league
+    
+    Args:
+        uid (str): Firebase user ID from auth token
+        league_id (int): ID of the league to get scoreboard for
+        
+    Returns:
+        200 (OK): League scoreboard data
+        {
+            "status": "success",
+            "data": {
+                "leaderboard": [
+                    {
+                        "rank": int,
+                        "name": str,
+                        "score": int,
+                        "leagueMemberId": int,
+                        "wins": int,
+                        "missedPicks": int
+                    },
+                    ...
+                ]
+            }
+        }
+        
+        404 (Not Found): League not found or user not a member
+        500 (Server Error): Unexpected error
+    """
     try:
-        logging.info(f"Fetching scoreboard for user {uid}")
+        logging.info(f"Fetching scoreboard for league {league_id}")
         
-        # Get user's league ID
+        # Get user's league memberships to verify access
+        league_memberships = get_league_member_ids(uid)
         
-        league_member_ids = get_league_member_ids(uid)
-        logging.info(f"Found league member IDs: {league_member_ids}")
-        print(f"found league member ids: {league_member_ids}")
-        
-        if not league_member_ids:
+        if not league_memberships:
             logging.warning(f"No leagues found for user {uid}")
             return jsonify({
                 "status": "error",
                 "message": "User not found in any leagues"
             }), 404
             
-        # Get first league ID
-        league_id = league_member_ids[0][1]  # Gets league_id from tuple
-        print(league_member_ids)
-        logging.info(f"Using league ID: {league_id}")
+        # Verify user is a member of the requested league
+        is_member = any(
+            league['league_id'] == league_id 
+            for league in league_memberships
+        )
         
+        if not is_member:
+            logging.warning(f"User {uid} attempted to access unauthorized league {league_id}")
+            return jsonify({
+                "status": "error",
+                "message": "Not authorized to view this league"
+            }), 403
+            
         # Get leaderboard data
         logging.info(f"Calculating leaderboard for league {league_id}")
         leaderboard_data = calculate_leaderboard(league_id)
         logging.info(f"Leaderboard data: {leaderboard_data}")
+        
+        if not leaderboard_data:
+            return jsonify({
+                "status": "error",
+                "message": "No leaderboard data found"
+            }), 404
         
         # Format response
         formatted_leaderboard = []
@@ -44,14 +84,17 @@ def scoreboard(uid):
             formatted_leaderboard.append({
                 "rank": rank,
                 "name": entry["username"],
+                "first_name": entry["first_name"],
+                "last_name": entry["last_name"],
+                "avatar_url": entry["avatar_url"],
                 "score": entry["total_points"],
                 "leagueMemberId": entry["league_member_id"],
-                "wins":entry["wins"],
+                "wins": entry["wins"],
                 "missedPicks": entry["missed_picks"]
             })
         
         logging.info(f"Formatted leaderboard: {formatted_leaderboard}")
-        print(formatted_leaderboard)
+        
         return jsonify({
             "status": "success",
             "data": {
@@ -66,7 +109,9 @@ def scoreboard(uid):
             "status": "error",
             "message": f"Server error: {str(e)}"
         }), 500
+       
 
+# TODO: Deprecate this route, migrate to user module
 @league_bp.route('/membership', methods=['GET'])
 @require_auth
 def check_membership(uid):
@@ -114,3 +159,4 @@ def get_member_picks(league_member_id):
         return jsonify({
             'error': f'Internal server error fetching pick history: {str(e)}'
         }), 500
+        

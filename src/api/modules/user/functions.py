@@ -1,5 +1,7 @@
 from sqlalchemy import desc, select
-from models import User, Pick, LeagueMember, Tournament, TournamentGolfer, TournamentGolferResult, Golfer, LeagueMemberTournamentScore
+from models import User, Pick, LeagueMember, Tournament, TournamentGolfer, TournamentGolferResult, Golfer, LeagueMemberTournamentScore, League
+from datetime import datetime
+import pytz
 
 from utils.db_connector import db
 import logging
@@ -76,26 +78,48 @@ def submit_pick(uid, tournament_id, golfer_id):
     return None
 
 def get_league_member_ids(uid):
-    """Get the list of league member IDs and their associated league IDs for a user.
+    """Get the list of league member IDs, league IDs, league names, and active status for a user.
 
     Args:
         uid (str): The unique identifier of the user.
 
     Returns:
-        list[tuple]: List of tuples containing (league_member_id, league_id) pairs.
+        list[dict]: List of dictionaries containing league member ID, league ID, league name, and active status.
     """
-    user_stmt = select(User).where(User.firebase_id == uid)
-    user_result = db.session.execute(user_stmt)
-    user = user_result.fetchone()[0]
-    
-    if user:
-        league_member_stmt = select(LeagueMember.id, LeagueMember.league_id).where(LeagueMember.user_id == user.id)
-        league_member_result = db.session.execute(league_member_stmt)
-        league_member_ids = league_member_result.fetchall()
+    try:
+        # Fetch the user by Firebase UID
+        user = db.session.query(User).filter(User.firebase_id == uid).first()
+        
+        if not user:
+            logger.error(f"User not found for UID: {uid}")
+            return None
+        
+        # Query for league memberships
+        league_member_stmt = (
+            db.session.query(
+                LeagueMember.id.label('league_member_id'),
+                League.id.label('league_id'),
+                League.name.label('league_name'),
+                League.is_active
+            )
+            .join(League, LeagueMember.league_id == League.id)
+            .filter(LeagueMember.user_id == user.id)
+            .all()
+        )
+        
+        league_member_ids = [{
+            'league_member_id': lm.league_member_id,
+            'league_id': lm.league_id,
+            'league_name': lm.league_name,
+            'is_active': lm.is_active
+        } for lm in league_member_stmt]
+        
         return league_member_ids
-    return None
-   
-   
+        
+    except Exception as e:
+        logger.error(f"Error getting league member IDs: {e}", exc_info=True)
+        return None
+
 def get_detailed_pick_history_by_member(league_member_id: int):
     """
     Get detailed pick history for a league member including tournament results and scoring.
@@ -187,6 +211,56 @@ def get_db_user_id(firebase_id: str) -> int:
     logger.debug(f"Found database user ID: {user.id}")
     return user.id
 
+# TODO: Move this to the tournament module
+def has_tournament_started(tournament_id: int) -> bool:
+    """
+    Check if a tournament has started based on its start date and time in the tournament's timezone
+    
+    Args:
+        tournament_id (int): The ID of the tournament to check
+        
+    Returns:
+        bool: True if tournament has started, False if not yet started
+        
+    Raises:
+        ValueError: If tournament_id is invalid or tournament not found
+    """
+    try:
+        # Get tournament details
+        tournament = (
+            db.session.query(Tournament)
+            .filter(Tournament.id == tournament_id)
+            .first()
+        )
+        
+        if not tournament:
+            logger.error(f"Tournament not found: {tournament_id}")
+            raise ValueError(f"Tournament not found: {tournament_id}")
+            
+        # Get current time in UTC
+        now = datetime.now(pytz.UTC)
+        
+        # Get tournament timezone
+        tournament_tz = pytz.timezone(tournament.time_zone or 'UTC')  # Default to UTC if no timezone specified
+        
+        # Combine tournament date and time in tournament's timezone
+        local_start = datetime.combine(
+            tournament.start_date,
+            tournament.start_time or datetime.min.time(),  # Default to midnight if no time specified
+        )
+        
+        # Localize the datetime to tournament's timezone
+        tournament_start = tournament_tz.localize(local_start)
+        
+        # Convert tournament start to UTC for comparison
+        tournament_start_utc = tournament_start.astimezone(pytz.UTC)
+        
+        # Return True if tournament has started
+        return now >= tournament_start_utc
+        
+    except Exception as e:
+        logger.error(f"Error checking tournament start: {e}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     from flask import Flask

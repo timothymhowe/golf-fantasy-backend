@@ -7,7 +7,7 @@ from utils.db_connector import db
 from modules.user.functions import get_league_member_ids
 
 
-def submit_pick(uid, tournament_id, golfer_id):
+def submit_pick(uid, tournament_id, golfer_id, league_member_id):
     league_member_ids = get_league_member_ids(uid)
 
     # TODO: URGENT LETS NOT DO HARDCODING
@@ -25,8 +25,7 @@ def submit_pick(uid, tournament_id, golfer_id):
     utc_start_datetime = local_start_datetime.astimezone(pytz.utc)
 
     # TODO: implement functionality for multiple leagues, for now just search the first league the user is in.
-    league_member_id = league_member_ids[0][0]
-    print("League member id: ", league_member_id)
+    # league_member_id = league_member_ids[0][0]
 
     if utc_start_datetime <= datetime.utcnow().replace(tzinfo=pytz.utc):
         raise ValueError("Tournament has already started")
@@ -69,7 +68,7 @@ def submit_pick(uid, tournament_id, golfer_id):
     return saved_pick
 
 # Query for the most recent pick for the week by a user with a given UID
-def get_most_recent_pick(uid, tournament_id):
+def get_most_recent_pick(uid, tournament_id, league_member_id):
     """
     Retrieves the most recent pick for a user in a specific tournament.
     Joins with the Golfer table to get complete golfer information.
@@ -90,8 +89,8 @@ def get_most_recent_pick(uid, tournament_id):
             - datagolf_id: DataGolf's ID for the golfer
     """
     try:
-        league_member_ids = get_league_member_ids(uid)
-        league_member_id = league_member_ids[0][0]
+        # league_member_ids = get_league_member_ids(uid)
+        # league_member_id = league_member_ids[0][0]
 
         stmt = (
             select(Pick, Golfer)
@@ -113,6 +112,8 @@ def get_most_recent_pick(uid, tournament_id):
         the_pick, the_golfer = row
 
         return {
+            "status": "success",
+            "has_pick": True,
             "first_name": the_golfer.first_name,
             "last_name": the_golfer.last_name,
             "full_name": the_golfer.full_name,
@@ -125,52 +126,3 @@ def get_most_recent_pick(uid, tournament_id):
     except Exception as e:
         print(f"Error in get_most_recent_pick: {str(e)}")
         raise
-
-def get_current_pick(tournament_id: int, uid: str):
-    try:
-        league_member_ids = get_league_member_ids(uid)
-        if not league_member_ids:
-            return None
-            
-        league_member_id = league_member_ids[0][0]
-        
-        # Let's add some debug prints
-        print(f"Getting pick for tournament_id: {tournament_id}, league_member_id: {league_member_id}")
-        
-        sql_query = text("""
-            SELECT 
-                g.id,
-                g.full_name,
-                g.first_name,
-                g.last_name,
-                g.datagolf_id,  -- This field exists in the model
-                p.id as pick_id,
-                p.created_at as pick_created_at
-            FROM pick p
-            JOIN golfer g ON p.golfer_id = g.id
-            WHERE p.tournament_id = :tournament_id
-            AND p.league_member_id = :league_member_id
-            AND p.is_most_recent = TRUE
-        """)
-        
-        result = db.session.execute(
-            sql_query,
-            {
-                "tournament_id": tournament_id,
-                "league_member_id": league_member_id
-            }
-        )
-        
-        pick = result.mappings().first()
-        if pick is None:
-            print("No pick found")
-            return {"error": "No pick found"}
-            
-        pick_dict = dict(pick)
-        print(f"Found pick data: {pick_dict}")  # Let's see what we get
-            
-        return pick_dict
-        
-    except Exception as e:
-        print(f"Error getting current pick: {str(e)}")
-        return {"error": str(e)}

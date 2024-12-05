@@ -21,26 +21,33 @@ def get_my_pick(uid):
     return jsonify(pick.to_dict()), 200
 
 
-
-@user_bp.route('/history', methods=['GET'])
+# TODO: check to make sure user is actually a member of the league before doing this, right now any member of any league could be authenticated and get the league info i think.  
+@user_bp.route('/history/<int:league_id>', methods=['GET'])
 @require_auth
-def get_my_history(uid):
-    """Get pick history for the authenticated user's active league"""
-    try:
-        # Get user's league member IDs
+def get_my_history(uid, league_id):
+    """Get pick history for the authenticated user's specified league"""
+    try:        
+        # Get user's league memberships
+        league_memberships = get_league_member_ids(uid)
         
-        league_member_ids = get_league_member_ids(uid)
-        
-        if not league_member_ids:
+        if not league_memberships:
             return jsonify({
                 'error': 'User not found in any leagues'
             }), 404
             
-        # For now, just use the first league member ID
-        # TODO: Add support for selecting active league
-        league_member_id = league_member_ids[0][0]
+        # Check if the user is a member of the specified league
+        league_member = next(
+            (league for league in league_memberships if league['league_id'] == league_id), 
+            None
+        )
         
-        picks = get_league_member_pick_history(league_member_id)
+        if not league_member:
+            return jsonify({
+                'error': 'User is not a member of the specified league'
+            }), 404
+            
+        # Get pick history for the specified league
+        picks = get_league_member_pick_history(league_member['league_member_id'])
         
         if picks is None:
             return jsonify({
@@ -57,9 +64,20 @@ def get_my_history(uid):
 
 
 # TODO: Deprecate this route, migrate to pick module
+# TODO: refactor to include the "has_tournament_started" check
 @user_bp.route('/submit', methods=['POST'])
 @require_auth
 def submit_my_pick(uid,tournament_id, golfer_id):
+    """Submit a pick for the authenticated user
+
+    Args:
+        uid (str): Firebase ID of the authenticated user
+        tournament_id (int): ID of the tournament to submit a pick for
+        golfer_id (int): ID of the golfer to submit a pick for
+
+    Returns:
+        _type_: _description_
+    """
     pick = submit_pick(uid, tournament_id, golfer_id)
     if pick is None:
         return jsonify({'error': 'Failed to submit pick'}), 500
@@ -67,3 +85,56 @@ def submit_my_pick(uid,tournament_id, golfer_id):
     return jsonify(pick.to_dict()), 201
 
     
+    
+@user_bp.route('/leagues', methods=['GET'])
+@require_auth
+def get_my_leagues(uid):
+    """
+    Get all leagues for the authenticated user
+    
+    Returns:
+        200 (OK): List of user's leagues
+        {
+            'success': True,
+            'data': [
+                {
+                    'league_member_id': int,
+                    'league_id': int,
+                    'league_name': str,
+                    'is_active': bool
+                },
+                ...
+            ]
+        }
+        
+        404 (Not Found): User has no leagues
+        500 (Server Error): Unexpected error
+    """
+    try:
+        # Get user's league memberships
+        leagues = get_league_member_ids(uid)
+        
+        if leagues is None:
+            logger.error(f"Failed to fetch leagues for user {uid}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to fetch user leagues'
+            }), 500
+            
+        if not leagues:
+            return jsonify({
+                'success': True,
+                'data': []
+            }), 200
+            
+        return jsonify({
+            'success': True,
+            'data': leagues
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting user leagues: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500

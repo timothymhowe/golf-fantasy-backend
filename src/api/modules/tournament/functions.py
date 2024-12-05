@@ -1,4 +1,4 @@
-from models import Tournament, TournamentGolfer, Golfer, Pick, User, LeagueMember
+from models import Tournament, TournamentGolfer, Golfer, Pick, User, LeagueMember, Schedule, ScheduleTournament, League
 from datetime import datetime
 from sqlalchemy import text, case, desc, and_
 from utils.db_connector import db
@@ -8,20 +8,33 @@ import pytz
 from modules.user.functions import get_league_member_ids
 
 
-def get_most_recent_tournament():
+def get_most_recent_tournament(league_id):
     """
-    Get the most recent tournament that has started or is currently happening.
+    Get the most recent tournament for a given league's schedule.
+
+    Args:
+        league_id (int): The ID of the league.
 
     Returns:
-        _type_: _description_
+        dict: Details of the most recent tournament or None if not found.
     """
     try:
         utc_now = datetime.now(pytz.UTC)
         
+        # Get the league
+        league = League.query.get(league_id)
+        if not league or not league.schedule_id:
+            logging.warning(f"No schedule found for league {league_id}")
+            return None
+
         # Get tournaments that might be current or recent
         potential_tournaments = (
             Tournament.query
-            .filter(Tournament.start_date <= utc_now.date())
+            .join(ScheduleTournament, ScheduleTournament.tournament_id == Tournament.id)
+            .filter(
+                ScheduleTournament.schedule_id == league.schedule_id,
+                Tournament.start_date <= utc_now.date()
+            )
             .order_by(Tournament.start_date.desc(), Tournament.start_time.desc())
             .limit(2)  # Get a couple to check times
             .all()
@@ -60,22 +73,35 @@ def get_most_recent_tournament():
         raise
 
 
-def get_upcoming_tournament():
+def get_upcoming_tournament(league_id):
     try:
         # Get current time in UTC
         utc_now = datetime.now(pytz.UTC)
         
-        # Query the database for the tournament that hasn't started yet
+        # Get the league first
+        league = League.query.get(league_id)
+        if not league:
+            return {"status": "error", "message": f"League {league_id} not found"}
+        if not league.schedule_id:
+            return {"status": "error", "message": f"No schedule found for league {league_id}"}
+
+        # Query the database for the next tournament in the league's schedule
         upcoming_tournament = (
             Tournament.query
-            .filter(Tournament.start_date >= utc_now.date())  # Get today and future tournaments
+            .join(ScheduleTournament, ScheduleTournament.tournament_id == Tournament.id)
+            .filter(
+                ScheduleTournament.schedule_id == league.schedule_id,
+                Tournament.start_date >= utc_now.date()
+            )
             .order_by(Tournament.start_date, Tournament.start_time)
             .first()
         )
 
         if upcoming_tournament is None:
-            logging.warning("No upcoming tournaments found")
-            return None
+            return {
+                "status": "no_tournaments",
+                "message": "No upcoming tournaments found for the league's schedule"
+            }
             
         # Convert tournament time to UTC for comparison
         tournament_tz = pytz.timezone(upcoming_tournament.time_zone or 'America/New_York')
@@ -88,30 +114,39 @@ def get_upcoming_tournament():
         if utc_now >= tournament_utc:
             upcoming_tournament = (
                 Tournament.query
-                .filter(Tournament.start_date > utc_now.date())
+                .join(ScheduleTournament, ScheduleTournament.tournament_id == Tournament.id)
+                .filter(
+                    ScheduleTournament.schedule_id == league.schedule_id,
+                    Tournament.start_date > utc_now.date()
+                )
                 .order_by(Tournament.start_date, Tournament.start_time)
                 .first()
             )
             
             if upcoming_tournament is None:
-                logging.warning("No upcoming tournaments found after current tournament")
-                return None
+                return {
+                    "status": "no_tournaments",
+                    "message": "No upcoming tournaments found after current tournament"
+                }
 
         # Return the tournament's details
         return {
-            "id": upcoming_tournament.id,
-            "sportcontent_api_id": upcoming_tournament.sportcontent_api_id,
-            "tournament_name": upcoming_tournament.tournament_name,
-            "tournament_format": upcoming_tournament.tournament_format,
-            "start_date": upcoming_tournament.start_date.strftime("%Y-%m-%d"),
-            "start_time": upcoming_tournament.start_time.strftime("%H:%M:%S") if upcoming_tournament.start_time else None,
-            "time_zone": upcoming_tournament.time_zone,
-            "course_name": upcoming_tournament.course_name,
-            "location_raw": upcoming_tournament.location_raw,
+            "status": "success",
+            "data": {
+                "id": upcoming_tournament.id,
+                "sportcontent_api_id": upcoming_tournament.sportcontent_api_id,
+                "tournament_name": upcoming_tournament.tournament_name,
+                "tournament_format": upcoming_tournament.tournament_format,
+                "start_date": upcoming_tournament.start_date.strftime("%Y-%m-%d"),
+                "start_time": upcoming_tournament.start_time.strftime("%H:%M:%S") if upcoming_tournament.start_time else None,
+                "time_zone": upcoming_tournament.time_zone,
+                "course_name": upcoming_tournament.course_name,
+                "location_raw": upcoming_tournament.location_raw,
+            }
         }
     except Exception as e:
         logging.error(f"Error in get_upcoming_tournament: {str(e)}")
-        raise
+        return {"status": "error", "message": str(e)}
 
 
 def get_upcoming_roster():
@@ -159,7 +194,7 @@ def populate_drop_down(uid):
 
 # TODO: Ger rid of shortcut for first league_member_id
         # TODO: Implement lazy loading for the golfers not on the upcoming roster
-def get_golfers_with_roster_and_picks(tournament_id: int, uid: str):
+def get_golfers_with_roster_and_picks(tournament_id: int, uid: str,league_member_id: int):
     """
     Retrieves golfers with roster and picks information for a specific tournament.
     """
@@ -168,7 +203,7 @@ def get_golfers_with_roster_and_picks(tournament_id: int, uid: str):
         if not league_member_ids:
             return None
             
-        league_member_id = league_member_ids[0][0]
+        # league_member_id = league_member_ids[0][0]
         
         # Get all golfers with their tournament and pick status
         golfers = (Golfer.query

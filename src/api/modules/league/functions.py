@@ -19,6 +19,9 @@ def calculate_leaderboard(leagueID):
     leaderboard = (db.session.query(
             User.id.label('user_id'),
             User.display_name,
+            User.first_name,
+            User.last_name,
+            User.avatar_url,
             League.id.label('league_id'),
             League.name.label('league_name'),
             LeagueMember.id.label('league_member_id'),
@@ -54,6 +57,9 @@ def calculate_leaderboard(leagueID):
     return [{
         "user_id": row.user_id,
         "username": row.display_name,
+        "first_name": row.first_name,
+        "last_name": row.last_name,
+        "avatar_url": row.avatar_url,
         "league_id": row.league_id,
         "league_name": row.league_name,
         "league_member_id": row.league_member_id,
