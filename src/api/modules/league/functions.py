@@ -6,6 +6,7 @@ from sqlalchemy.sql import case
 from utils.db_connector import db
 import logging
 from datetime import datetime
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,8 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
                 Tournament.id,
                 Tournament.tournament_name,
                 Tournament.start_date,
+                Tournament.start_time,
+                Tournament.time_zone,
                 Tournament.is_major,
                 ScheduleTournament.week_number,
                 Pick,
@@ -135,10 +138,17 @@ def get_league_member_pick_history(league_member_id: int) -> dict:
 
         picks_data = []
         total_points = 0
-        current_date = datetime.utcnow().date()
+        utc_now = datetime.now(pytz.UTC)
 
         for tournament_data in picks_query:
-            is_future = tournament_data.start_date > current_date
+            # Convert tournament start to UTC for comparison
+            tournament_tz = pytz.timezone(tournament_data.time_zone or 'America/New_York')
+            tournament_local = tournament_tz.localize(
+                datetime.combine(tournament_data.start_date, tournament_data.start_time)
+            )
+            tournament_utc = tournament_local.astimezone(pytz.UTC)
+            
+            is_future = utc_now < tournament_utc
             
             if is_future:
                 picks_data.append({

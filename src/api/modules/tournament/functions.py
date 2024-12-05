@@ -3,22 +3,47 @@ from datetime import datetime
 from sqlalchemy import text, case, desc, and_
 from utils.db_connector import db
 import logging
+import pytz
 
 from modules.user.functions import get_league_member_ids
 
 
 def get_upcoming_tournament():
     try:
-        # Query the database for the tournament that has the closest start date in the future
+        # Get current time in UTC
+        utc_now = datetime.now(pytz.UTC)
+        
+        # Query the database for the tournament that hasn't started yet
         upcoming_tournament = (
-            Tournament.query.filter(Tournament.start_date > datetime.utcnow())
-            .order_by(Tournament.start_date)
+            Tournament.query
+            .filter(Tournament.start_date >= utc_now.date())  # Get today and future tournaments
+            .order_by(Tournament.start_date, Tournament.start_time)
             .first()
         )
 
         if upcoming_tournament is None:
             logging.warning("No upcoming tournaments found")
             return None
+            
+        # Convert tournament time to UTC for comparison
+        tournament_tz = pytz.timezone(upcoming_tournament.time_zone or 'America/New_York')
+        tournament_local = tournament_tz.localize(
+            datetime.combine(upcoming_tournament.start_date, upcoming_tournament.start_time)
+        )
+        tournament_utc = tournament_local.astimezone(pytz.UTC)
+        
+        # If tournament has already started, get next one
+        if utc_now >= tournament_utc:
+            upcoming_tournament = (
+                Tournament.query
+                .filter(Tournament.start_date > utc_now.date())
+                .order_by(Tournament.start_date, Tournament.start_time)
+                .first()
+            )
+            
+            if upcoming_tournament is None:
+                logging.warning("No upcoming tournaments found after current tournament")
+                return None
 
         # Return the tournament's details
         return {
