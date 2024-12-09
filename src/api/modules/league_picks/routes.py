@@ -7,8 +7,19 @@ logger = logging.getLogger(__name__)
 
 league_picks_bp = Blueprint('league_picks', __name__)
 
-@league_picks_bp.route('/<int:league_id>/', methods=['GET'])
-def get_league_current_picks(league_id):
+@league_picks_bp.route('/<int:league_id>', methods=['GET'])
+@require_auth
+def get_league_current_picks(uid, league_id):
+    """
+    Get the current picks for a league
+
+    Args:
+        uid (str): The Firebase UID of the authenticated user
+        league_id (int): The ID of the league
+
+    Returns:
+        dict: A dictionary containing the week's picks for the most recent tournament.
+    """
     try:
         picks = get_current_week_picks(league_id)
         if picks is None:
