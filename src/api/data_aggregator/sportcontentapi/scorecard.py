@@ -1,5 +1,5 @@
 import requests
-from data_aggregator.sportcontentapi.headers import headers
+from data_aggregator.sportcontentapi.headers import sportcontentapi_headers
 
 url = "https://golf-leaderboard-data.p.rapidapi.com/scorecard/"
 
@@ -16,7 +16,7 @@ def get_player_scorecard_raw(golfer_id:int, tournament_id:int):
     """
     
     query_url = f"{url} + {tournament_id}/{golfer_id}"
-    response = requests.get(query_url, headers=headers)
+    response = requests.get(query_url, headers=sportcontentapi_headers)
     return response.json()
 
 if __name__ == "__main__":

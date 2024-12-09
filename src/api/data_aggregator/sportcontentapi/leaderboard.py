@@ -1,5 +1,5 @@
 import requests
-from data_aggregator.sportcontentapi.headers import headers
+from data_aggregator.sportcontentapi.headers import sportcontentapi_headers
 
 url = "https://golf-leaderboard-data.p.rapidapi.com/leaderboard/"
 
@@ -16,7 +16,7 @@ def get_tournament_leaderboard_raw(tournament_id:int):
     """
     try:
         query_url = f"{url}{tournament_id}"
-        response = requests.get(query_url, headers=headers)
+        response = requests.get(query_url, headers=sportcontentapi_headers)
         response.raise_for_status()
         raw_data = response.json()
         return raw_data
