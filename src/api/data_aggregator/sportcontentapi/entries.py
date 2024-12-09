@@ -1,6 +1,6 @@
 import requests
 from pytz import timezone
-from data_aggregator.sportcontentapi.headers import headers
+from data_aggregator.sportcontentapi.headers import sportcontentapi_headers
 from modules.tournament.functions import get_upcoming_tournament
 
 
@@ -19,7 +19,7 @@ def get_entry_list(tournament_id):
     Returns:
         dict: The JSON response containing the list of entries.
     """
-    response = requests.get(f"{url}{tournament_id}", headers=headers)
+    response = requests.get(f"{url}{tournament_id}", headers=sportcontentapi_headers)
     return response.json()
 
 
