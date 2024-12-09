@@ -165,8 +165,9 @@ class Golfer(db.Model):
     Represents a golfer in the system.
 
     Attributes:
-        id (int): The unique identifier for the golfer. (Primary Key)
+        id (String): The unique identifier for the golfer, uses the golf_id function in src/api/utils/functions/golf_id.py to generate. (Primary Key)
         sportcontent_api_id (int): The unique identifier for the golfer in the SportContent API.
+        datagolf_id (int): The unique identifier for the golfer in the DataGolf API.
         first_name (str): The first name of the golfer.
         last_name (str): The last name of the golfer.
         photo_url (str): The URL of the photo of the golfer.
