@@ -128,6 +128,7 @@ class Tournament(db.Model):
         latitude (str): The latitude of the tournament.
         longitude (str): The longitude of the tournament.
         is_major (bool): Whether the tournament is a major.
+        has_cut (bool): Whether the tournament has a cut.
     """
 
     id = db.Column(db.Integer, primary_key=True)
@@ -148,6 +149,7 @@ class Tournament(db.Model):
     latitude = db.Column(db.String(10), nullable=True)
     longitude = db.Column(db.String(10), nullable=True)
     is_major = db.Column(db.Boolean, nullable=False, default=False)
+    has_cut = db.Column(db.Boolean, nullable=False, default=False)
 
 
     # TODO: Does this make sense to do?  I'm not sure if this is the best way to do this.
