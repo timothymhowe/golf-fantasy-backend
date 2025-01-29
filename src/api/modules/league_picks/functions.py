@@ -142,6 +142,7 @@ def get_current_week_picks(league_id: int) -> dict:
                             'golfer_id': golfer.id,
                             'golfer_first_name': golfer.first_name,
                             'golfer_last_name': golfer.last_name,
+                            'golfer_country_code':golfer.country_code,
                             'datagolf_id': golfer.datagolf_id,
                             'status': result.status if result else None,
                             'score_to_par': result.score_to_par if result else None,
@@ -173,28 +174,7 @@ def get_current_week_picks(league_id: int) -> dict:
                     'picks': picks_data
                 }
                 
-                # Pretty print the response
-                print("\nCurrent Week Picks Response:")
-                print("=" * 80)
-                print("Tournament Info:")
-                print(f"  Name: {response['tournament']['name']}")
-                print(f"  Date: {response['tournament']['start_date']}")
-                print(f"  Major: {response['tournament']['is_major']}")
-                print(f"  Week: {response['tournament']['week_number']}")
-                print(f"  Ongoing: {response['tournament']['is_ongoing']}")
-                print("\nPicks:")
-                for pick in response['picks']:
-                    print("-" * 60)
-                    print(f"  Member: {pick['member']['name']}")
-                    if pick['pick']:
-                        print(f"  Golfer: {pick['pick']['golfer_first_name']} {pick['pick']['golfer_last_name']}")
-                        print(f"  Status: {pick['pick']['status']}")
-                        print(f"  Score: {pick['pick']['score_to_par']}")
-                        print(f"  Position: {pick['pick']['position']}")
-                        print(f"  Points: {pick['pick']['points']}")
-                    else:
-                        print("  No pick made")
-                print("=" * 80)
+
                 
                 return response
         
