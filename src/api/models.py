@@ -172,7 +172,11 @@ class Golfer(db.Model):
         datagolf_id (int): The unique identifier for the golfer in the DataGolf API.
         first_name (str): The first name of the golfer.
         last_name (str): The last name of the golfer.
+        full_name (str): The full name of the golfer.
+        country_name (str): The name of the country the golfer is from.
+        country_code (str): The 3 letter ISO country code of the country the golfer is from.
         photo_url (str): The URL of the photo of the golfer.
+        is_amateur (bool): Whether the golfer is an amateur.
     """
 
     id = db.Column(db.String(9), primary_key=True)
@@ -181,7 +185,10 @@ class Golfer(db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
-    photo_url = db.Column(db.String(512))
+    country_name=db.Column(db.String(60), nullable=True)
+    country_code = db.Column(db.String(10), nullable=True)
+    photo_url = db.Column(db.String(512), nullable=True)
+    is_amateur= db.Column(db.Boolean, default=False)
     
 
 
