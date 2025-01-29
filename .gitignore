@@ -86,3 +86,7 @@ __pycache__/
 
 # Google Cloud key
 *cloud-key.json
+src/api/live_results_cache.json
+src/api/jobs/create_schedule/schedule.csv
+src/api/data_aggregator/datagolf/cache/mega_cache.json
+src/api/data_aggregator/datagolf/cache/mega_cache_pre_cut.json
