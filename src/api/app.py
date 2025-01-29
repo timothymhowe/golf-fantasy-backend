@@ -7,6 +7,7 @@ from modules.commish.routes import commish_bp
 from modules.management.routes import management_bp
 from modules.admin.routes import health_bp
 from modules.league_picks.routes import league_picks_bp
+from modules.live_tournament.routes import live_tournament_bp
 
 from utils.db_connector import db, init_db
 
@@ -35,6 +36,8 @@ def create_app():
     app.register_blueprint(health_bp, url_prefix="/health")
     
     app.register_blueprint(league_picks_bp, url_prefix="/league_picks")
+    
+    app.register_blueprint(live_tournament_bp, url_prefix="/live_results")
     
     #   TODO: create a rate limiter for each user to prevent DDOS attacks, overuse, etc.
 
