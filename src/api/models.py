@@ -46,6 +46,7 @@ class League(db.Model):
     name = db.Column(db.String(100), nullable=False)
     scoring_format = db.Column(db.String(100), nullable=False, default="STANDARD")
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    schedule_id = db.Column(db.Integer, nullable=True)
 
 
 class LeagueMember(db.Model):
@@ -111,6 +112,8 @@ class Tournament(db.Model):
     Attributes:
         id (int): The unique identifier for the tournament (primary key).
         sportcontent_api_id (int): The unique identifier for the tournament in the SportContent API.
+        sportcontent_api_tour_id (int): The unique identifier for the tour in the SportContent API.
+        datagolf_id (int): The unique identifier for the tournament in the DataGolf API.
         year (int): The year of the tournament.
         tournament_name (str): The name of the tournament.
         tournament_format (str): The format of the tournament (stroke, match, etc.).
@@ -122,11 +125,16 @@ class Tournament(db.Model):
         course_name (str): The name of the course where the tournament is played.
         city (str): The city where the tournament is played.
         state (str): The state where the tournament is played.
+        latitude (str): The latitude of the tournament.
+        longitude (str): The longitude of the tournament.
+        is_major (bool): Whether the tournament is a major.
+        has_cut (bool): Whether the tournament has a cut.
     """
 
     id = db.Column(db.Integer, primary_key=True)
     sportcontent_api_id = db.Column(db.Integer, unique=True)
     sportcontent_api_tour_id = db.Column(db.Integer, unique=False, default=2)
+    datagolf_id = db.Column(db.Integer, unique=True)
     year = db.Column(db.Integer, nullable=False)
     tournament_name = db.Column(db.String(100), nullable=False)
     tournament_format = db.Column(db.String(100), nullable=False, default="stroke")
@@ -138,7 +146,10 @@ class Tournament(db.Model):
     course_name = db.Column(db.String(100))
     city = db.Column(db.String(50), nullable=True)
     state = db.Column(db.String(50), nullable=True)
+    latitude = db.Column(db.String(10), nullable=True)
+    longitude = db.Column(db.String(10), nullable=True)
     is_major = db.Column(db.Boolean, nullable=False, default=False)
+    has_cut = db.Column(db.Boolean, nullable=False, default=False)
 
 
     # TODO: Does this make sense to do?  I'm not sure if this is the best way to do this.
@@ -156,11 +167,16 @@ class Golfer(db.Model):
     Represents a golfer in the system.
 
     Attributes:
-        id (int): The unique identifier for the golfer. (Primary Key)
+        id (String): The unique identifier for the golfer, uses the golf_id function in src/api/utils/functions/golf_id.py to generate. (Primary Key)
         sportcontent_api_id (int): The unique identifier for the golfer in the SportContent API.
+        datagolf_id (int): The unique identifier for the golfer in the DataGolf API.
         first_name (str): The first name of the golfer.
         last_name (str): The last name of the golfer.
+        full_name (str): The full name of the golfer.
+        country_name (str): The name of the country the golfer is from.
+        country_code (str): The 3 letter ISO country code of the country the golfer is from.
         photo_url (str): The URL of the photo of the golfer.
+        is_amateur (bool): Whether the golfer is an amateur.
     """
 
     id = db.Column(db.String(9), primary_key=True)
@@ -169,7 +185,10 @@ class Golfer(db.Model):
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
-    photo_url = db.Column(db.String(512))
+    country_name=db.Column(db.String(60), nullable=True)
+    country_code = db.Column(db.String(10), nullable=True)
+    photo_url = db.Column(db.String(512), nullable=True)
+    is_amateur= db.Column(db.Boolean, default=False)
     
 
 

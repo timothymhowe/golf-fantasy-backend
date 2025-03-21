@@ -15,7 +15,7 @@ from flask import Flask
 from utils.db_connector import db, init_db
 from models import (
     Pick, TournamentGolferResult, TournamentGolfer, LeagueMember, 
-    User, LeagueMemberTournamentScore, Schedule, ScheduleTournament, Tournament
+    User, LeagueMemberTournamentScore, Schedule, ScheduleTournament, Tournament, League
 )
 from datetime import datetime
 
@@ -226,16 +226,62 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
     """
     print(f"\nCalculating scores for Tournament {tournament_id}, League {league_id}")
     
+    # Get the league's schedule with explicit joins
+    league_schedule = (db.session.query(Schedule)
+        .select_from(League)
+        .join(Schedule, League.schedule_id == Schedule.id)
+        .filter(League.id == league_id)
+        .first())
+    
+    if not league_schedule:
+        print(f"Error: Schedule not found for League {league_id}")
+        return False
+    
+    print(f"Schedule ID: {league_schedule.id}")
+    
+    # Verify tournament is in the league's schedule
+    schedule_tournament = (db.session.query(ScheduleTournament)
+        .filter(
+            ScheduleTournament.tournament_id == tournament_id,
+            ScheduleTournament.schedule_id == league_schedule.id
+        ).first())
+        
+    if not schedule_tournament:
+        print(f"Error: Tournament {tournament_id} not found in league's schedule")
+        return False
+        
+    print(f"Week Number: {schedule_tournament.week_number}")
+    print(f"Allow Duplicates: {schedule_tournament.allow_duplicate_picks}")
+    
+    # Check tournament exists and get info
+    tournament_info = (db.session.query(Tournament.tournament_name, Tournament.is_major, Tournament.start_date)
+        .filter(Tournament.id == tournament_id)
+        .first())
+    
+    if not tournament_info:
+        print(f"Error: Tournament {tournament_id} not found in database")
+        return False
+        
+    print(f"Tournament: {tournament_info.tournament_name}")
+    print(f"Start Date: {tournament_info.start_date}")
+    print(f"Major Tournament: {'Yes (1.25x bonus)' if tournament_info.is_major else 'No'}")
+    
+    # Get all picks for processing, ensuring they are the most recent
+    picks = (db.session.query(Pick, LeagueMember, User.display_name)
+        .join(LeagueMember, Pick.league_member_id == LeagueMember.id)
+        .join(User, LeagueMember.user_id == User.id)
+        .filter(
+            Pick.tournament_id == tournament_id,
+            LeagueMember.league_id == league_id,
+            Pick.is_most_recent == True  # Ensure it's the most recent pick
+        ).all())
+    
     # Initialize counters
     scores_created = 0
     deleted = 0
     duplicate_count = 0
     
     # Check tournament settings
-    tournament_info = (db.session.query(Tournament.tournament_name, Tournament.is_major)
-        .filter(Tournament.id == tournament_id)
-        .first())
-    
     is_major = tournament_info.is_major if tournament_info else False
     major_multiplier = 1.25 if is_major else 1.0
     
@@ -261,40 +307,17 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
     
     print(f"Cleared {deleted} existing score records")
     
-    # Get all picks for processing
-    picks = (db.session.query(Pick, LeagueMember, User.display_name)
-        .join(LeagueMember, Pick.league_member_id == LeagueMember.id)
-        .join(User, LeagueMember.user_id == User.id)
-        .filter(
-            Pick.tournament_id == tournament_id,
-            LeagueMember.league_id == league_id
-        ).all())
-    
-    # Get current tournament's week number
-    current_tournament = (db.session.query(ScheduleTournament)
-        .filter(ScheduleTournament.tournament_id == tournament_id)
-        .first())
-    
-    if not current_tournament:
-        print("Error: Tournament not found in schedule")
-        return False
-        
-    # Check if current tournament allows duplicates
-    allow_duplicates = (db.session.query(ScheduleTournament.allow_duplicate_picks)
-        .filter(ScheduleTournament.tournament_id == tournament_id)
-        .scalar() or False)
+    # Initialize previous_picks
+    previous_picks = []
     
     # If current tournament allows duplicates, we skip all duplicate checking
-    if allow_duplicates:
-        print(f"Tournament allows duplicate picks - skipping duplicate detection")
-        previous_picks = []
-    else:
+    if not allow_duplicates:
         # Only get previous picks from tournaments that also didn't allow duplicates
         previous_picks = (db.session.query(Pick)
             .join(ScheduleTournament, Pick.tournament_id == ScheduleTournament.tournament_id)
             .filter(
-                ScheduleTournament.schedule_id == current_tournament.schedule_id,
-                ScheduleTournament.week_number < current_tournament.week_number,
+                ScheduleTournament.schedule_id == schedule_tournament.schedule_id,
+                ScheduleTournament.week_number < schedule_tournament.week_number,
                 ScheduleTournament.allow_duplicate_picks == False,  # Ignore weeks that allowed duplicates
                 Pick.league_member_id.in_(league_member_ids)
             ).all())
@@ -306,7 +329,7 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
             member_pick_history[pick.league_member_id] = set()
         member_pick_history[pick.league_member_id].add(pick.golfer_id)
     
-    print(f"\nProcessing {len(picks)} picks for Week {current_tournament.week_number}...")
+    print(f"\nProcessing {len(picks)} picks for Week {schedule_tournament.week_number}...")
     
     # Process each pick
     for pick, league_member, display_name in picks:

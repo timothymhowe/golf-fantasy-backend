@@ -50,7 +50,6 @@ next-env.d.ts
 
 # Virtualenv
 **/src/api/env/
-**/.python-version
 
 # vscode project settings
 **/.vscode/
@@ -73,3 +72,21 @@ src/api/utils/scripts/db/06_create_dev_user.py
 
 # Legacy data imports
 src/api/data/legacy_imports/2024_squilliam.csv
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Google Cloud key
+*cloud-key.json
+src/api/live_results_cache.json
+src/api/jobs/create_schedule/schedule.csv
+src/api/data_aggregator/datagolf/cache/mega_cache.json
+src/api/data_aggregator/datagolf/cache/mega_cache_pre_cut.json

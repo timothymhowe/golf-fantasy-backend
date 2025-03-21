@@ -45,7 +45,7 @@ def get_datagolf_rankings_with_names():
     url = "https://feeds.datagolf.com/preds/get-dg-rankings"
     params = {
         "file_format": "json",
-        "key": "ceff12d650932416c4fae00aff70"
+        "key": os.getenv('DATAGOLF_API_KEY')
     }
 
     try:
