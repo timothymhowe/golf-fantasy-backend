@@ -1,5 +1,5 @@
 from models import Tournament, TournamentGolfer, Golfer, Pick, User, LeagueMember, Schedule, ScheduleTournament, League
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from sqlalchemy import text, case, desc, and_
 from utils.db_connector import db
 import logging
@@ -251,4 +251,73 @@ def get_golfers_with_roster_and_picks(tournament_id: int, uid: str,league_member
     except Exception as e:
         print(f"Error fetching golfer data: {str(e)}")
         return None
+
+def get_days_until_previous_monday(tournament_date):
+    """
+    Calculate days between a date and its previous Monday.
+    Returns 0 if date is a Monday.
+    """
+    current_day = tournament_date.weekday()  # 0=Monday, 6=Sunday
+    if current_day == 0:  # Already Monday
+        return 0
+    else:  # Tuesday-Sunday, count back to Monday
+        return current_day
+
+def get_current_or_next_tournament(league_id):
+    """
+    Get both recent and upcoming tournament data with timing information.
+    
+    TODO: Optimize database queries
+    - Currently querying league schedule multiple times (in get_most_recent and get_upcoming)
+    - Could refactor to get schedule once and pass to helper functions
+    - Or create a single optimized query that gets both tournaments at once
+    """
+    try:
+        # Get both tournaments
+        recent = get_most_recent_tournament(league_id)
+        upcoming_result = get_upcoming_tournament(league_id)
+        
+        if upcoming_result["status"] != "success":
+            return {"status": "error", "message": "No upcoming tournament found"}
+            
+        upcoming = upcoming_result["data"]
+        
+        # Calculate pick window timing for upcoming tournament
+        tournament_tz = pytz.timezone(upcoming["time_zone"] or 'America/New_York')
+        current_time = datetime.now(tournament_tz)
+        tournament_start = tournament_tz.localize(
+            datetime.combine(
+                datetime.strptime(upcoming["start_date"], "%Y-%m-%d").date(),
+                datetime.strptime(upcoming["start_time"], "%H:%M:%S").time() if upcoming["start_time"] else time(0, 0)
+            )
+        )
+        
+        # Calculate Monday 5pm for upcoming tournament
+        days_back = get_days_until_previous_monday(tournament_start)
+        pick_window_open = tournament_start - timedelta(days=days_back)
+        pick_window_open = pick_window_open.replace(hour=17, minute=0, second=0, microsecond=0)
+        
+        # Determine current state
+        picks_open = current_time >= pick_window_open and current_time < tournament_start
+        tournament_live = recent and datetime.strptime(recent["end_date"], "%Y-%m-%d").date() >= current_time.date()
+        
+        return {
+            "status": "success",
+            "recent_tournament": recent,
+            "upcoming_tournament": upcoming,
+            "timing": {
+                "current_time": current_time.isoformat(),
+                "pick_window_opens": pick_window_open.isoformat(),
+                "tournament_start": tournament_start.isoformat(),
+            },
+            "state": {
+                "picks_open": picks_open,
+                "tournament_live": tournament_live
+            }
+        }
+            
+    except Exception as e:
+        logging.error(f"Error in get_current_or_next_tournament: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 

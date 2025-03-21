@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from modules.authentication.auth import require_auth
-from modules.user.functions import get_most_recent_pick, pick_history, submit_pick, get_league_member_ids
+from modules.user.functions import get_most_recent_pick, pick_history, submit_pick, get_league_member_ids, get_user_profile
 from modules.authentication.auth import default_app
 from modules.league.functions import get_league_member_pick_history
 import logging
@@ -134,6 +134,59 @@ def get_my_leagues(uid):
         
     except Exception as e:
         logger.error(f"Error getting user leagues: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error'
+        }), 500
+
+
+@user_bp.route('/profile', methods=['GET'])
+@require_auth
+def get_profile(uid):
+    """
+    Get the authenticated user's profile
+    
+    Returns:
+        200 (OK): User profile data
+        {
+            'success': True,
+            'data': {
+                'id': int,
+                'display_name': str,
+                'first_name': str,
+                'last_name': str,
+                'email': str,
+                'avatar_url': str,
+                'leagues': [
+                    {
+                        'league_member_id': int,
+                        'league_id': int,
+                        'league_name': str,
+                        'role_id': int,
+                        'role_name': str,
+                        'is_active': bool
+                    },
+                    ...
+                ]
+            }
+        }
+        
+        500 (Server Error): Database error or user not found
+    """
+    try:
+        profile = get_user_profile(uid)
+        
+        if profile is None:
+            logger.error(f"Authenticated user {uid} not found in database")
+            return jsonify({
+                'success': False,
+                'error': 'User profile not found in database'
+            }), 500  # Changed from 404 to 500
+            
+        return jsonify(profile), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting user profile: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'error': 'Internal server error'

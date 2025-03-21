@@ -3,9 +3,13 @@ from sqlalchemy import desc, select, text
 from datetime import datetime
 import pytz
 from utils.db_connector import db
-#TODO:Find new gf who isn't mean to her boyfriend when he has tni
-from modules.user.functions import get_league_member_ids
 
+from modules.user.functions import get_league_member_ids
+from data_aggregator.datagolf.rankings.aggregator import get_aggregated_stats
+from flask import jsonify
+import logging
+
+logger = logging.getLogger(__name__)
 
 def submit_pick(uid, tournament_id, golfer_id, league_member_id):
     league_member_ids = get_league_member_ids(uid)
@@ -126,3 +130,34 @@ def get_most_recent_pick(uid, tournament_id, league_member_id):
     except Exception as e:
         print(f"Error in get_most_recent_pick: {str(e)}")
         raise
+
+def get_field_stats(tournament_id: int):
+    """
+    Get detailed stats for all players in the tournament field
+    
+    Args:
+        tournament_id: ID of the tournament to get stats for
+        
+    Returns:
+        dict: Tournament and player stats or error response
+    """
+    try:
+        # Get aggregated stats from DataGolf
+        stats = get_aggregated_stats()
+        if not stats:
+            return {
+                'success': False,
+                'error': 'Failed to fetch tournament stats'
+            }
+            
+        return {
+            'success': True,
+            'data': stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting field stats: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }

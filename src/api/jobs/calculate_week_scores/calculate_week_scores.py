@@ -1,7 +1,8 @@
 """
 Tournament Score Calculator Module
 
-This module handles the calculation and management of tournament scores for golf fantasy leagues.
+This module handles the calculation and management of tournament scores for golf fantasy leagues. It is used to determine the users scores for a given tournament.
+
 It provides functionality to:
 - Preview tournament scores without saving to database
 - Calculate and save scores for individual tournaments
@@ -318,9 +319,9 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
             .filter(
                 ScheduleTournament.schedule_id == schedule_tournament.schedule_id,
                 ScheduleTournament.week_number < schedule_tournament.week_number,
-                ScheduleTournament.allow_duplicate_picks == False,  # Ignore weeks that allowed duplicates
-                Pick.league_member_id.in_(league_member_ids)
-            ).all())
+                not ScheduleTournament.allow_duplicate_picks,  # Ignore weeks that allowed duplicates
+                Pick.league_member_id.in_(league_member_ids),
+                Pick.is_most_recent).all())
     
     # Track historical picks by member
     member_pick_history = {}

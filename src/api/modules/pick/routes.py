@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from modules.authentication.auth import require_auth
-from modules.pick.functions import submit_pick, get_most_recent_pick
+from modules.pick.functions import submit_pick, get_most_recent_pick, get_field_stats
 import logging
 
 pick_bp = Blueprint('pick', __name__)
@@ -46,3 +46,9 @@ def get_current_pick(uid, league_member_id):
     except Exception as e:
         logging.error(f"Error getting current pick: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+    
+@pick_bp.route('/field_stats/<int:tournament_id>', methods=['GET'])
+def field_stats(tournament_id):
+    stats = get_field_stats(tournament_id)
+    return jsonify(stats), 200

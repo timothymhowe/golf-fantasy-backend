@@ -1,5 +1,5 @@
 from sqlalchemy import desc, select
-from models import User, Pick, LeagueMember, Tournament, TournamentGolfer, TournamentGolferResult, Golfer, LeagueMemberTournamentScore, League
+from models import User, Pick, LeagueMember, Tournament, TournamentGolfer, TournamentGolferResult, Golfer, LeagueMemberTournamentScore, League, Role
 from datetime import datetime
 import pytz
 
@@ -203,13 +203,17 @@ def get_db_user_id(firebase_id: str) -> int:
     """Convert Firebase UID to database user ID"""
     logger.debug(f"Looking up database ID for Firebase UID: {firebase_id}")
     
-    user = User.query.filter_by(firebase_uid=firebase_id).first()
+    user = User.query.filter_by(firebase_id=firebase_id).first()
     if not user:
         logger.error(f"No database user found for Firebase UID: {firebase_id}")
         raise ValueError("User not found in database")
         
     logger.debug(f"Found database user ID: {user.id}")
     return user.id
+
+
+
+
 
 # TODO: Move this to the tournament module
 def has_tournament_started(tournament_id: int) -> bool:
@@ -261,6 +265,65 @@ def has_tournament_started(tournament_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error checking tournament start: {e}", exc_info=True)
         raise
+
+def get_user_profile(uid):
+    """Get user profile including league memberships and roles.
+
+    Args:
+        uid (str): Firebase UID of the user
+
+    Returns:
+        dict: User profile information including leagues and roles
+    """
+    try:
+        # Join query to get user data and their league memberships with roles
+        user_data = (
+            db.session.query(
+                User,
+                LeagueMember,
+                League,
+                Role
+            )
+            .join(LeagueMember, User.id == LeagueMember.user_id)
+            .join(League, LeagueMember.league_id == League.id)
+            .join(Role, LeagueMember.role_id == Role.id)
+            .filter(User.firebase_id == uid)
+            .all()
+        )
+        
+        if not user_data:
+            logger.error(f"User not found for UID: {uid}")
+            return None
+            
+        # First row contains user info
+        user = user_data[0][0]
+        
+        # Format league memberships
+        leagues = [{
+            'league_member_id': row[1].id,
+            'league_id': row[2].id,
+            'league_name': row[2].name,
+            'role_id': row[3].id,
+            'role_name': row[3].name,
+            'is_active': row[2].is_active
+        } for row in user_data]
+           
+        return {
+            'success': True,
+            'data': {
+                'id': user.id,
+                'display_name': user.display_name,
+                'email': user.email,
+                'avatar_url': user.avatar_url,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'leagues': leagues
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting user profile: {e}", exc_info=True)
+        return None
 
 if __name__ == "__main__":
     from flask import Flask
