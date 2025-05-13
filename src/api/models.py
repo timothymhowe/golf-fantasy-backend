@@ -129,6 +129,7 @@ class Tournament(db.Model):
         longitude (str): The longitude of the tournament.
         is_major (bool): Whether the tournament is a major.
         has_cut (bool): Whether the tournament has a cut.
+        is_team_event (bool): Whether the tournament is a team event.
     """
 
     id = db.Column(db.Integer, primary_key=True)
@@ -150,6 +151,8 @@ class Tournament(db.Model):
     longitude = db.Column(db.String(10), nullable=True)
     is_major = db.Column(db.Boolean, nullable=False, default=False)
     has_cut = db.Column(db.Boolean, nullable=False, default=False)
+    is_team_event = db.Column(db.Boolean, nullable=False, default=False)
+
 
 
     # TODO: Does this make sense to do?  I'm not sure if this is the best way to do this.
@@ -222,6 +225,38 @@ class TournamentGolfer(db.Model):
 
     def to_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+    
+class TournamentGolferTeam(db.Model):
+    """
+    Represents a team pairing in a tournament by linking TournamentGolfer entries.
+
+    Attributes:
+        id (int): The unique identifier for the team pairing
+        tournament_golfer_id (int): Foreign key to the first TournamentGolfer entry
+        partner_tournament_golfer_id (int): Foreign key to the partner's TournamentGolfer entry
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    tournament_golfer_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("tournament_golfer.id"), 
+        nullable=False
+    )
+    partner_tournament_golfer_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("tournament_golfer.id"), 
+        nullable=False
+    )
+
+    # Relationships
+    tournament_golfer = db.relationship(
+        "TournamentGolfer",
+        foreign_keys=[tournament_golfer_id]
+    )
+    partner_tournament_golfer = db.relationship(
+        "TournamentGolfer",
+        foreign_keys=[partner_tournament_golfer_id]
+    )
 
 
 class Role(db.Model):
@@ -509,3 +544,4 @@ class InviteCodeUsage(db.Model):
     __table_args__ = (
         db.UniqueConstraint('invite_code_id', 'user_id', name='uix_invite_code_usage'),
     )
+    

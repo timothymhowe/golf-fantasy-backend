@@ -9,6 +9,7 @@ from utils.db_connector import db, init_db
 from flask import Flask
 import json
 import os
+import requests
 
 STATUS_MAP_PATH = os.path.join(os.path.dirname(__file__), 'status_map.json')
 
@@ -26,22 +27,86 @@ def save_status_map(mappings):
 
 def get_tournament_results(tournament_id: int):
     """
-    Gets tournament results from SportContent API
+    Gets tournament results from DataGolf API using the historical rounds endpoint
     
     Args:
         tournament_id (int): Database ID of the tournament
 
     Returns:
-        list: Cleaned leaderboard results or None if no data available
+        list: Cleaned leaderboard results with just position and score to par
     """
-    # Get the tournament to find its API ID
+    # Get the tournament to find its DataGolf ID
     tournament = Tournament.query.get(tournament_id)
     if not tournament:
         print(f"Tournament {tournament_id} not found in database")
         return None
         
-    # Get results using the SportContent API ID
-    return get_tournament_leaderboard_clean(tournament.sportcontent_api_id)
+    if not tournament.datagolf_id:
+        print(f"Tournament {tournament_id} has no DataGolf ID")
+        return None
+
+    api_key = os.getenv('DATAGOLFAPI_KEY')
+    if not api_key:
+        raise ValueError("DATAGOLFAPI_KEY not found in environment variables")
+
+    # DataGolf API endpoint for historical rounds
+    current_year = datetime.now().year
+    url = f"https://feeds.datagolf.com/historical-raw-data/rounds?tour=pga&event_id={tournament.datagolf_id}&year={current_year}&file_format=json&key={api_key}"
+    
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Failed to fetch DataGolf results: {response.status_code}")
+        return None
+
+    data = response.json()
+    
+    # Process and aggregate round data
+    player_results = {}
+    for round_data in data.get('scores', []):
+        dg_id = round_data.get('dg_id')
+        if dg_id not in player_results:
+            # Get the finish text and determine status
+            fin_text = round_data.get('fin_text', '')
+            
+            # Determine status and result
+            if fin_text.upper() in ['CUT', 'MC']:
+                status = 'cut'
+                result = 'CUT'
+            elif fin_text.upper() in ['WD']:
+                status = 'wd'
+                result = 'WD'
+            elif fin_text.upper() in ['DQ']:
+                status = 'dq'
+                result = 'DQ'
+            else:
+                status = 'active'  # Default to active for now
+                result = fin_text  # Keep original position text (e.g., "T1", "T2", etc.)
+            
+            player_results[dg_id] = {
+                'player_id': str(dg_id),
+                'first_name': '',
+                'last_name': '',
+                'result': result,
+                'status': status,
+                'score_to_par': 0 if not tournament.is_team_event else None  # Set to None for team events
+            }
+            
+            # Split player name into first and last
+            if ',' in round_data.get('player_name', ''):
+                last_name, first_name = round_data['player_name'].split(',', 1)
+                player_results[dg_id]['last_name'] = last_name.strip()
+                player_results[dg_id]['first_name'] = first_name.strip()
+        
+        # Only calculate score_to_par for non-team events
+        if not tournament.is_team_event:
+            for key in round_data:
+                if key.startswith('round_'):
+                    round_info = round_data[key]
+                    score = round_info.get('score', 0)
+                    course_par = round_info.get('course_par', 0)
+                    player_results[dg_id]['score_to_par'] += (score - course_par)
+
+    return list(player_results.values())
 
 def process_team_event(tournament_id: int, result: dict, year: str):
     """
@@ -177,28 +242,8 @@ def process_tour_championship_results(results: list) -> list:
 def update_tournament_entries_and_results(tournament_id: int, interactive: bool = False):
     """
     Updates tournament entries and results from the API
-    
-    Args:
-        tournament_id (int): ID of the tournament to update
-        interactive (bool): If True, prompts for unknown statuses
-    """    
+    """
     try:
-        # Load existing status mappings at start
-        status_mappings = load_status_map()
-        unknown_statuses = {}  # Track new mappings for this run
-        
-        # Clear existing results for this tournament
-        existing_results = (TournamentGolferResult.query
-            .join(TournamentGolfer)
-            .filter(TournamentGolfer.tournament_id == tournament_id)
-            .all())
-        
-        for result in existing_results:
-            db.session.delete(result)
-        
-        db.session.commit()
-        print("Cleared existing results")
-
         # Get fresh results from API
         results = get_tournament_results(tournament_id)
         if not results:
@@ -207,112 +252,19 @@ def update_tournament_entries_and_results(tournament_id: int, interactive: bool 
 
         year = str(datetime.now().year)
         
-        # TODO: Improve TOUR Championship detection
-        # Currently using hard-coded tournament ID (19) for TOUR Championship
-        # Need to modify get_tournament_results() to preserve tournament metadata
-        # so we can properly detect tournament type from API response
-        is_tour_championship = tournament_id == 39
-        if is_tour_championship:
-            print("\nProcessing TOUR Championship special scoring...")
-            results = process_tour_championship_results(results)
-        
         for result in results:
-            position = result.get('position', '')
-            raw_status = result.get('status', 'unknown').lower()
-            score_to_par = result.get('total_to_par')
-            
-            # Clean up the status
-            clean_status = 'complete'
-            if raw_status in ['cut', 'mc', 'missed cut']:
-                clean_status = 'cut'
-            elif raw_status in ['wd', 'withdrawn','withdrew']:
-                clean_status = 'wd'
-            elif raw_status in ['dq', 'disqualified','dsq']:
-                clean_status = 'dq'
-            elif raw_status == 'mdf':
-                clean_status = 'mdf'
-            elif raw_status in ['active', 'in progress']:
-                clean_status = 'active'
-            elif raw_status in ['complete', 'finished']:
-                clean_status = 'complete'
-            else:
-                if raw_status in status_mappings:
-                    clean_status = status_mappings[raw_status]
-                    print(f"Using existing mapping for '{raw_status}': {clean_status}")
-                elif raw_status in unknown_statuses:
-                    clean_status = unknown_statuses[raw_status]
-                    print(f"Using new mapping for '{raw_status}': {clean_status}")
-                elif interactive:
-                    print(f"\nUnknown status '{raw_status}'")
-                    print("Known statuses: complete, cut, wd, dq, mdf, active")
-                    clean_status = input("Enter correct status: ").lower().strip()
-                    unknown_statuses[raw_status] = clean_status
-                    print(f"Added new status mapping: {raw_status} -> {clean_status}")
-                else:
-                    print(f"Unknown status '{raw_status}' defaulting to 'complete'")
-                    clean_status = 'complete'
-
-            
-            # Check for team event
-            first_name = result.get('first_name', '').strip()
-            if first_name.endswith('/'):
-                tournament_golfers = process_team_event(tournament_id, result, year)
-                if not tournament_golfers:
-                    print("Failed to process team entry")
-                    continue
-                    
-                # Create result entries for both team members
-                for tournament_golfer in tournament_golfers:
-                    new_result = TournamentGolferResult(
-                        tournament_golfer_id=tournament_golfer.id,
-                        result=position,
-                        status=clean_status,
-                        score_to_par=score_to_par if score_to_par is not None else None
-                    )
-                    db.session.add(new_result)
-                continue
-            
-            # Not a team event - proceed with normal player_id lookup
             player_id = result.get('player_id')
             if not player_id:
                 print(f"Missing player_id in result: {result}")
                 continue
 
-
-            # TODO: Create new golfer entry when not found
-            # 1. Extract first_name and last_name from result['player_name']
-            # 2. Create new Golfer with:
-            #    - sportcontent_api_id = player_id
-            #    - first_name, last_name from player_name
-            #    - full_name = result['player_name']
-            #    - Set other fields as nullable for now
-            # 3. Add and commit before continuing
             # Find golfer entry
-            
-            golfer = Golfer.query.filter_by(sportcontent_api_id=player_id).first()
+            golfer = Golfer.query.filter_by(datagolf_id=player_id).first()
             if not golfer:
-                # Fallback to name matching if sportcontent_api_id fails
-                first_name = result.get('first_name', '').strip()
-                last_name = result.get('last_name', '').strip()
-                
-                if first_name and last_name:
-                    # Try exact name match first
-                    golfer = Golfer.query.filter(
-                        Golfer.first_name.ilike(first_name),
-                        Golfer.last_name.ilike(last_name)
-                    ).first()
-                    
-                    if golfer:
-                        print(f"Found golfer by name match: {golfer.full_name} "
-                              f"(API ID: {player_id} -> DB ID: {golfer.sportcontent_api_id})")
-                    else:
-                        print(f"No match found for: {first_name} {last_name} (API ID: {player_id})")
-                        continue
-                else:
-                    print(f"Missing name data for player_id: {player_id}")
-                    continue
+                print(f"No golfer found for DataGolf ID: {player_id}")
+                continue
 
-            # Get tournament_golfer entry
+            # Get or create tournament_golfer entry
             tournament_golfer = TournamentGolfer.query.filter_by(
                 tournament_id=tournament_id,
                 golfer_id=golfer.id,
@@ -320,6 +272,7 @@ def update_tournament_entries_and_results(tournament_id: int, interactive: bool 
             ).first()
 
             if not tournament_golfer:
+                print(f"Creating tournament entry for {golfer.full_name}")
                 tournament_golfer = TournamentGolfer(
                     tournament_id=tournament_id,
                     golfer_id=golfer.id,
@@ -330,20 +283,25 @@ def update_tournament_entries_and_results(tournament_id: int, interactive: bool 
                 db.session.add(tournament_golfer)
                 db.session.flush()
 
-            # Create new result record
-            new_result = TournamentGolferResult(
-                tournament_golfer_id=tournament_golfer.id,
-                result=position,
-                status=clean_status,
-                score_to_par=score_to_par if score_to_par is not None else None
-            )
-            db.session.add(new_result)
+            # Get or create result record
+            tournament_result = TournamentGolferResult.query.filter_by(
+                tournament_golfer_id=tournament_golfer.id
+            ).first()
 
-        # After processing all results, update the status map file with any new mappings
-        if unknown_statuses:
-            status_mappings.update(unknown_statuses)
-            save_status_map(status_mappings)
-            print(f"Saved {len(unknown_statuses)} new status mappings to file")
+            if tournament_result:
+                # Update existing result
+                tournament_result.result = result['result']
+                tournament_result.status = result['status']
+                tournament_result.score_to_par = result['score_to_par']
+            else:
+                # Create new result if none exists
+                tournament_result = TournamentGolferResult(
+                    tournament_golfer_id=tournament_golfer.id,
+                    result=result['result'],
+                    status=result['status'],
+                    score_to_par=result['score_to_par']
+                )
+                db.session.add(tournament_result)
 
         db.session.commit()
         print("Tournament results updated successfully")
