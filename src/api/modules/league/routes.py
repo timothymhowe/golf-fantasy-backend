@@ -133,7 +133,8 @@ def check_membership(uid):
         }), 500
 
 @league_bp.route('/member/<int:league_member_id>/pick-history', methods=['GET'])
-def get_member_picks(league_member_id):
+@require_auth
+def get_member_picks(uid, league_member_id):
     """Get pick history for a specific league member
     
     Args:

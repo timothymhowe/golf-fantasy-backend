@@ -7,9 +7,9 @@ logger = logging.getLogger(__name__)
 
 live_tournament_bp = Blueprint('live_results', __name__)
 
-# TODO: P0 require auth!!!!!!
 @live_tournament_bp.route('/live', methods=['GET'])
-def tournament_state():
+@require_auth
+def tournament_state(uid):
     """API endpoint to get the current tournament state."""
     try:
         tournament_state = get_latest_tournament_state()

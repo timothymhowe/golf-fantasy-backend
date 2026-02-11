@@ -48,6 +48,7 @@ def get_current_pick(uid, league_member_id):
     
     
 @pick_bp.route('/field_stats/<int:tournament_id>', methods=['GET'])
-def field_stats(tournament_id):
+@require_auth
+def field_stats(uid, tournament_id):
     stats = get_field_stats(tournament_id)
     return jsonify(stats), 200
