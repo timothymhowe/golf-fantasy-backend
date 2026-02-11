@@ -65,4 +65,4 @@ def create_user_in_db(uid: str, data: dict) -> tuple[dict, int]:
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating user: {str(e)}", exc_info=True)
-        return {'error': 'Internal server error', 'message': str(e)}, 500
+        return {'error': 'Internal server error'}, 500

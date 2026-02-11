@@ -83,7 +83,7 @@ def validate_and_use_invite_code(code: str, firebase_id: str):
 
     except Exception as e:
         logger.error(f"Error validating invite code: {str(e)}", exc_info=True)
-        return False, f"Internal server error: {str(e)}", 500
+        return False, "Internal server error", 500
 
 def get_manual_pick_data(league_id: int):
     """Get all data needed for manual pick entry by commissioner.

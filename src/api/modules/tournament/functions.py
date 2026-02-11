@@ -147,8 +147,8 @@ def get_upcoming_tournament(league_id):
             }
         }
     except Exception as e:
-        logging.error(f"Error in get_upcoming_tournament: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        logger.error("Error in get_upcoming_tournament: %s", e, exc_info=True)
+        return {"status": "error", "message": "Internal server error"}
 
 
 def get_upcoming_roster():
@@ -319,7 +319,7 @@ def get_current_or_next_tournament(league_id):
         }
             
     except Exception as e:
-        logging.error(f"Error in get_current_or_next_tournament: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        logger.error("Error in get_current_or_next_tournament: %s", e, exc_info=True)
+        return {"status": "error", "message": "Internal server error"}
 
 

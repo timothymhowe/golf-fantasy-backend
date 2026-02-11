@@ -62,7 +62,7 @@ def join_league(uid):
             
     except Exception as e:
         logger.error(f"Error processing join request: {str(e)}", exc_info=True)
-        return jsonify({'message': 'Internal server error', 'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @commish_bp.route('/manual-pick-data/<int:league_id>', methods=['GET'])
 @require_auth
@@ -85,7 +85,7 @@ def get_pick_data(uid, league_id):
             
     except Exception as e:
         logger.error(f"Error fetching manual pick data: {str(e)}", exc_info=True)
-        return jsonify({'message': 'Internal server error', 'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @commish_bp.route('/manual-pick', methods=['POST'])
 @require_auth
@@ -126,4 +126,4 @@ def submit_manual_pick(uid):
             
     except Exception as e:
         logger.error(f"Error submitting manual pick: {str(e)}", exc_info=True)
-        return jsonify({'message': 'Internal server error', 'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500

@@ -43,8 +43,8 @@ def get_current_pick(uid, league_member_id):
         return jsonify(pick), 200
 
     except Exception as e:
-        logging.error(f"Error getting current pick: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error("Error getting current pick: %s", e, exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
     
     
 @pick_bp.route('/field_stats/<int:tournament_id>', methods=['GET'])

@@ -156,8 +156,8 @@ def get_field_stats(tournament_id: int):
         }
         
     except Exception as e:
-        logger.error(f"Error getting field stats: {e}")
+        logger.error("Error getting field stats: %s", e, exc_info=True)
         return {
             'success': False,
-            'error': str(e)
+            'error': 'Failed to retrieve field stats'
         }
