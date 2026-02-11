@@ -61,7 +61,7 @@ def generate_invite_code() -> str:
             return code
 
 def create_league_invite(league_id: int, created_by_id: int, role_id: int, 
-                        max_uses: int = None, expires_at = None) -> LeagueInviteCode:
+                        max_uses: int | None = None, expires_at = None) -> LeagueInviteCode:
     """
     Create a new league invite code.
     
@@ -101,10 +101,11 @@ if __name__ == "__main__":
     with app.app_context():
         try:
             # Get league ID
+            league_id = 0
             while True:
-                league_id = input("\nEnter league ID: ").strip()
+                league_id_input = input("\nEnter league ID: ").strip()
                 try:
-                    league_id = int(league_id)
+                    league_id = int(league_id_input)
                     league = League.query.get(league_id)
                     if league:
                         print(f"\nFound league: {league.name}")
@@ -115,24 +116,25 @@ if __name__ == "__main__":
                     print("\nPlease enter a valid number.")
 
             # Get role ID
+            role_id = 0
             while True:
-                role_id = input("\nEnter role ID (2: Commissioner, 3: Member): ").strip()
+                role_id_input = input("\nEnter role ID (1: Comissioner, 2: Admin, 3: Member): ").strip()
                 try:
-                    role_id = int(role_id)
+                    role_id = int(role_id_input)
                     if role_id in [2, 3]:
                         break
-                    print("\nPlease enter 2 for Comissioner, 3 for Member.")
+                    print("\nPlease enter 1 for Comissioner, 2 for Admin, 3 for Member.")
                 except ValueError:
                     print("\nPlease enter a valid number.")
 
             # Get expiration days
+            expires_at = datetime.utcnow() + timedelta(days=7)
             while True:
-                days = input("\nEnter number of days until expiration (default 7): ").strip()
-                if not days:
-                    expires_at = datetime.utcnow() + timedelta(days=7)
+                days_input = input("\nEnter number of days until expiration (default 7): ").strip()
+                if not days_input:
                     break
                 try:
-                    days = int(days)
+                    days = int(days_input)
                     if days > 0:
                         expires_at = datetime.utcnow() + timedelta(days=days)
                         break
@@ -141,13 +143,13 @@ if __name__ == "__main__":
                     print("\nPlease enter a valid number.")
 
             # Get max uses
+            max_uses = 1
             while True:
-                max_uses = input("\nEnter maximum number of uses (default 1): ").strip()
-                if not max_uses:
-                    max_uses = 1
+                max_uses_input = input("\nEnter maximum number of uses (default 1): ").strip()
+                if not max_uses_input:
                     break
                 try:
-                    max_uses = int(max_uses)
+                    max_uses = int(max_uses_input)
                     if max_uses > 0:
                         break
                     print("\nPlease enter a positive number.")
