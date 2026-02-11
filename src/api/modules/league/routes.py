@@ -144,7 +144,7 @@ def get_member_picks(league_member_id):
         JSON response with pick history or error
     """
     try:
-        print('Getting pick history for league member', league_member_id)
+        logger.info("Getting pick history for league member %s", league_member_id)
         picks = get_league_member_pick_history(league_member_id)
         
         if picks is None:

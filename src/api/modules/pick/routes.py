@@ -3,6 +3,8 @@ from modules.authentication.auth import require_auth
 from modules.pick.functions import submit_pick, get_most_recent_pick, get_field_stats
 import logging
 
+logger = logging.getLogger(__name__)
+
 pick_bp = Blueprint('pick', __name__)
 
 @pick_bp.route('/submit', methods=['POST'])
@@ -12,10 +14,7 @@ def submit_my_pick(uid):
     league_member_id = data.get('league_member_id')
     tournament_id = data.get('tournament_id')
     golfer_id = data.get('golfer_id')
-    print("Request params")
-    print("Tournament ID: ", tournament_id)
-    print("Golfer ID: ", golfer_id)
-    print("League Member ID: ", league_member_id)
+    logger.info("Pick submit - tournament: %s, golfer: %s, member: %s", tournament_id, golfer_id, league_member_id)
     
     pick = submit_pick(uid, tournament_id, golfer_id,league_member_id)
     if pick is None:

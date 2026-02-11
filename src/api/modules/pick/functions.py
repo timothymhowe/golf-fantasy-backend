@@ -128,7 +128,7 @@ def get_most_recent_pick(uid, tournament_id, league_member_id):
         }
 
     except Exception as e:
-        print(f"Error in get_most_recent_pick: {str(e)}")
+        logger.error("Error in get_most_recent_pick: %s", e)
         raise
 
 def get_field_stats(tournament_id: int):

@@ -4,19 +4,18 @@ import firebase_admin
 from firebase_admin import auth, credentials
 import os
 import json
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Get the key string
 key_string = os.getenv('FIREBASE_ADMIN_SDK_KEY')
 
 try:
-
-    
- 
     key = json.loads(key_string)
 except json.JSONDecodeError as e:
-    print(f"JSON Error at position {e.pos}: {e.msg}")
-    print(f"Near text: {key_string[max(0, e.pos-20):min(len(key_string), e.pos+20)]}")
+    logger.error("JSON Error at position %d: %s", e.pos, e.msg)
     raise
 
 cred = credentials.Certificate(key)

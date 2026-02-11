@@ -24,9 +24,7 @@ def tournament_state():
 def the_big_fetch(uid):
     """API endpoint to get the current tournament state."""
     try:
-        print("Starting big fetch")
         out = a_big_fetch()
-        print("Big fetch complete")
         return jsonify(out), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

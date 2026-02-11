@@ -5,6 +5,8 @@ from utils.db_connector import db
 import logging
 import pytz
 
+logger = logging.getLogger(__name__)
+
 from modules.user.functions import get_league_member_ids
 
 
@@ -249,7 +251,7 @@ def get_golfers_with_roster_and_picks(tournament_id: int, uid: str,league_member
         }
         
     except Exception as e:
-        print(f"Error fetching golfer data: {str(e)}")
+        logger.error("Error fetching golfer data: %s", e)
         return None
 
 def get_days_until_previous_monday(tournament_date):

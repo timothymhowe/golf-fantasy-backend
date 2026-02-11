@@ -31,7 +31,6 @@ def get_latest_tournament_state():
     return tournament_state
 
 def a_big_fetch():
-    print("passing big fetch to aggregator")
     return big_fetch()
 
 def sync_big_fetch():
