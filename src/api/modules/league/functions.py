@@ -45,7 +45,7 @@ def calculate_leaderboard(leagueID):
         .filter(League.id == leagueID)
         .group_by(
             User.id, 
-            User.display_name, 
+            User.display_name,  
             League.id, 
             League.name,
             LeagueMember.id
