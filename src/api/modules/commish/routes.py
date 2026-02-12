@@ -71,7 +71,8 @@ def get_pick_data(uid, league_id):
     logger.info(f"Fetching manual pick data for league {league_id}")
     
     try:
-        # Check if user has appropriate access
+        # TODO: Uncomment once check_league_access is fixed — get_db_user_id raises
+        # ValueError instead of returning None, which causes this to block everyone.
         # if not check_league_access(uid, league_id):
         #     logger.warning(f"Unauthorized access attempt by user {uid} for league {league_id}. Notifying admin.")
         #     return jsonify({'message': 'Unauthorized access'}), 403
@@ -109,7 +110,10 @@ def submit_manual_pick(uid):
             return jsonify({'message': 'Missing required fields'}), 400
             
         # Check if user has commissioner access
-        league_id = LeagueMember.query.get(league_member_id).league_id
+        member = LeagueMember.query.get(league_member_id)
+        if not member:
+            return jsonify({'error': 'League member not found'}), 404
+        league_id = member.league_id
         if not check_league_access(uid, league_id):
             logger.warning(f"Unauthorized manual pick attempt by user {uid}")
             return jsonify({'message': 'Unauthorized access'}), 403
