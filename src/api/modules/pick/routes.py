@@ -26,9 +26,10 @@ def submit_my_pick(uid):
 @pick_bp.route('/current/<int:league_member_id>', methods=['GET'])
 @require_auth
 def get_current_pick(uid, league_member_id):
-    tournament_id = request.args.get('tournament_id')
-    if not tournament_id:
-        return jsonify({'error': 'tournament_id is required'}), 400
+    try:
+        tournament_id = int(request.args.get('tournament_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Valid tournament_id is required'}), 400
 
     try:
         pick = get_most_recent_pick(uid, tournament_id, league_member_id)

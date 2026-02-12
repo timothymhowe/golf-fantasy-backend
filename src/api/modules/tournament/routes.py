@@ -67,11 +67,11 @@ def get_dd_data(uid, league_member_id):
     Returns:
         JSON response with golfer data and tournament IDs
     """
-    tournament_id = request.args.get('tournament_id')
-    # print("\n=== DD Endpoint Debug ===")
-    # print(f"UID: {uid}")
-    # print(f"Tournament ID: {tournament_id}")
-    
+    try:
+        tournament_id = int(request.args.get('tournament_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Valid tournament_id is required'}), 400
+
     dd = get_golfers_with_roster_and_picks(tournament_id, uid, league_member_id)
     # print(f"DD Result: {dd}")
     
