@@ -1,4 +1,6 @@
-from flask import Flask
+from flask import Flask, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from modules.league.routes import league_bp
 from modules.user.routes import user_bp
 from modules.tournament.routes import tournament_bp
@@ -16,35 +18,38 @@ from utils.db_connector import db, init_db
 
 from dotenv import load_dotenv
 
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per minute"],
+    storage_uri="memory://",
+)
 
 def create_app():
     app = Flask(__name__)
     init_db(app)
-    
-    app.register_blueprint(league_bp, url_prefix="/league")
-    
-    app.register_blueprint(user_bp, url_prefix="/user")
-    
-    app.register_blueprint(tournament_bp, url_prefix="/tournament")
-    
-    app.register_blueprint(pick_bp, url_prefix="/pick")
+    limiter.init_app(app)
 
+    # Exempt health checks from rate limiting
+    limiter.exempt(health_bp)
+
+    app.register_blueprint(league_bp, url_prefix="/league")
+    app.register_blueprint(user_bp, url_prefix="/user")
+    app.register_blueprint(tournament_bp, url_prefix="/tournament")
+    app.register_blueprint(pick_bp, url_prefix="/pick")
     app.register_blueprint(commish_bp, url_prefix="/commish")
-    
     app.register_blueprint(management_bp, url_prefix="/management")
-    
     app.register_blueprint(health_bp, url_prefix="/health")
-    
     app.register_blueprint(league_picks_bp, url_prefix="/league_picks")
-    
     app.register_blueprint(live_tournament_bp, url_prefix="/live_results")
-    
-    #   TODO: create a rate limiter for each user to prevent DDOS attacks, overuse, etc.
+
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        return jsonify({"error": "Rate limit exceeded", "message": str(e.description)}), 429
 
     @app.route("/")
     def hello():
         return "<p>Hello, World!</p>"
-    
+
     return app
     
 def start_scheduler():
