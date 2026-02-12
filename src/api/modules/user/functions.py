@@ -182,16 +182,12 @@ def get_detailed_pick_history_by_member(league_member_id: int):
         }
         history.append(entry)
         
-        # Print detailed information
         major_str = "(MAJOR)" if pick.is_major else ""
         status = "NO PICK" if pick.is_no_pick else "DUPLICATE" if pick.is_duplicate_pick else pick.result
-        print(f"{pick.tournament_name} {major_str}")
-        print(f"  Pick: {pick.first_name} {pick.last_name}")
-        print(f"  Position: {status}")
-        print(f"  Points: {points:.2f}")
-        print("------------------")
-    
-    print(f"\nTotal Points: {total_points:.2f}")
+        logger.debug("%s %s - Pick: %s %s, Position: %s, Points: %.2f",
+                     pick.tournament_name, major_str, pick.first_name, pick.last_name, status, points)
+
+    logger.debug("Total Points: %.2f", total_points)
     
     return {
         'user': league_member.User.display_name,

@@ -29,10 +29,10 @@ def db_health_check():
             'database': 'connected'
         }, 200
     except Exception as e:
+        logger.error("Database health check failed: %s", e, exc_info=True)
         return {
             'status': 'unhealthy',
-            'message': 'Database connection failed',
-            'error': str(e)
+            'message': 'Database connection failed'
         }, 500
 
 

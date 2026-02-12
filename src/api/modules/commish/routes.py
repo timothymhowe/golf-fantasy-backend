@@ -4,6 +4,7 @@ from modules.authentication.auth import require_auth
 from modules.user.functions import get_db_user_id
 from modules.commish.functions import validate_and_use_invite_code, get_manual_pick_data, create_manual_pick
 from models import LeagueMember
+from utils.constants import ROLE_COMMISSIONER, ROLE_ADMIN
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def check_league_access(firebase_uid: str, league_id: int) -> bool:
             return False
             
         # Check if user is commissioner or admin
-        return member.role_id in [1, 2]  # ROLE_COMMISSIONER = 1, ROLE_ADMIN = 2
+        return member.role_id in [ROLE_COMMISSIONER, ROLE_ADMIN]
         
     except Exception as e:
         logger.error(f"Error checking league access: {str(e)}", exc_info=True)
@@ -62,7 +63,7 @@ def join_league(uid):
             
     except Exception as e:
         logger.error(f"Error processing join request: {str(e)}", exc_info=True)
-        return jsonify({'message': 'Internal server error', 'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @commish_bp.route('/manual-pick-data/<int:league_id>', methods=['GET'])
 @require_auth
@@ -71,7 +72,8 @@ def get_pick_data(uid, league_id):
     logger.info(f"Fetching manual pick data for league {league_id}")
     
     try:
-        # Check if user has appropriate access
+        # TODO: Uncomment once check_league_access is fixed — get_db_user_id raises
+        # ValueError instead of returning None, which causes this to block everyone.
         # if not check_league_access(uid, league_id):
         #     logger.warning(f"Unauthorized access attempt by user {uid} for league {league_id}. Notifying admin.")
         #     return jsonify({'message': 'Unauthorized access'}), 403
@@ -85,7 +87,7 @@ def get_pick_data(uid, league_id):
             
     except Exception as e:
         logger.error(f"Error fetching manual pick data: {str(e)}", exc_info=True)
-        return jsonify({'message': 'Internal server error', 'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500
 
 @commish_bp.route('/manual-pick', methods=['POST'])
 @require_auth
@@ -109,7 +111,10 @@ def submit_manual_pick(uid):
             return jsonify({'message': 'Missing required fields'}), 400
             
         # Check if user has commissioner access
-        league_id = LeagueMember.query.get(league_member_id).league_id
+        member = LeagueMember.query.get(league_member_id)
+        if not member:
+            return jsonify({'error': 'League member not found'}), 404
+        league_id = member.league_id
         if not check_league_access(uid, league_id):
             logger.warning(f"Unauthorized manual pick attempt by user {uid}")
             return jsonify({'message': 'Unauthorized access'}), 403
@@ -126,4 +131,4 @@ def submit_manual_pick(uid):
             
     except Exception as e:
         logger.error(f"Error submitting manual pick: {str(e)}", exc_info=True)
-        return jsonify({'message': 'Internal server error', 'error': str(e)}), 500
+        return jsonify({'error': 'Internal server error'}), 500

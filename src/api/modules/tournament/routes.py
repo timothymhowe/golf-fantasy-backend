@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 tournament_bp = Blueprint('tournament', __name__)
 
 @tournament_bp.route('/most-recent/<int:league_id>', methods=['GET'])
-def most_recent_tournament(league_id):
+@require_auth
+def most_recent_tournament(uid, league_id):
     tournament = get_most_recent_tournament(league_id)
     if tournament is None:
         return jsonify({'error': 'No recent tournament found'}), 404
@@ -17,7 +18,8 @@ def most_recent_tournament(league_id):
 # TODO: Mark old endpoints for deprecation
 # TODO: Add deprecation warnings and migrate frontend to new endpoint
 @tournament_bp.route('/upcoming/<int:league_id>', methods=['GET'])
-def upcoming_tournament(league_id):
+@require_auth
+def upcoming_tournament(uid, league_id):
     result = get_upcoming_tournament(league_id)
     
     if result["status"] == "success":
@@ -45,7 +47,8 @@ def upcoming_tournament(league_id):
         }), 404
 
 @tournament_bp.route('/roster', methods=['GET'])
-def upcoming_roster():
+@require_auth
+def upcoming_roster(uid):
     roster = get_upcoming_roster()
     if roster is None:
         return jsonify({'error': 'No upcoming roster found'}), 404
@@ -64,11 +67,11 @@ def get_dd_data(uid, league_member_id):
     Returns:
         JSON response with golfer data and tournament IDs
     """
-    tournament_id = request.args.get('tournament_id')
-    # print("\n=== DD Endpoint Debug ===")
-    # print(f"UID: {uid}")
-    # print(f"Tournament ID: {tournament_id}")
-    
+    try:
+        tournament_id = int(request.args.get('tournament_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Valid tournament_id is required'}), 400
+
     dd = get_golfers_with_roster_and_picks(tournament_id, uid, league_member_id)
     # print(f"DD Result: {dd}")
     
@@ -78,7 +81,8 @@ def get_dd_data(uid, league_member_id):
     return dd, 200
 
 @tournament_bp.route('/current/<int:league_id>', methods=['GET'])
-def get_current_tournament_state(league_id):
+@require_auth
+def get_current_tournament_state(uid, league_id):
     """
     Get both recent and upcoming tournament data with state information.
     

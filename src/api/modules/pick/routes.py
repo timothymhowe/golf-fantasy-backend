@@ -3,6 +3,8 @@ from modules.authentication.auth import require_auth
 from modules.pick.functions import submit_pick, get_most_recent_pick, get_field_stats
 import logging
 
+logger = logging.getLogger(__name__)
+
 pick_bp = Blueprint('pick', __name__)
 
 @pick_bp.route('/submit', methods=['POST'])
@@ -12,10 +14,7 @@ def submit_my_pick(uid):
     league_member_id = data.get('league_member_id')
     tournament_id = data.get('tournament_id')
     golfer_id = data.get('golfer_id')
-    print("Request params")
-    print("Tournament ID: ", tournament_id)
-    print("Golfer ID: ", golfer_id)
-    print("League Member ID: ", league_member_id)
+    logger.info("Pick submit - tournament: %s, golfer: %s, member: %s", tournament_id, golfer_id, league_member_id)
     
     pick = submit_pick(uid, tournament_id, golfer_id,league_member_id)
     if pick is None:
@@ -27,9 +26,10 @@ def submit_my_pick(uid):
 @pick_bp.route('/current/<int:league_member_id>', methods=['GET'])
 @require_auth
 def get_current_pick(uid, league_member_id):
-    tournament_id = request.args.get('tournament_id')
-    if not tournament_id:
-        return jsonify({'error': 'tournament_id is required'}), 400
+    try:
+        tournament_id = int(request.args.get('tournament_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Valid tournament_id is required'}), 400
 
     try:
         pick = get_most_recent_pick(uid, tournament_id, league_member_id)
@@ -44,11 +44,12 @@ def get_current_pick(uid, league_member_id):
         return jsonify(pick), 200
 
     except Exception as e:
-        logging.error(f"Error getting current pick: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error("Error getting current pick: %s", e, exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
     
     
 @pick_bp.route('/field_stats/<int:tournament_id>', methods=['GET'])
-def field_stats(tournament_id):
+@require_auth
+def field_stats(uid, tournament_id):
     stats = get_field_stats(tournament_id)
     return jsonify(stats), 200

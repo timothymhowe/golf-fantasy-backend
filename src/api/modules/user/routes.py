@@ -57,9 +57,9 @@ def get_my_history(uid, league_id):
         return jsonify(picks), 200
         
     except Exception as e:
-        logger.error(f"Error getting user pick history: {e}", exc_info=True)
+        logger.error("Error getting user pick history: %s", e, exc_info=True)
         return jsonify({
-            'error': f'Internal server error: {str(e)}'
+            'error': 'Internal server error'
         }), 500
 
 

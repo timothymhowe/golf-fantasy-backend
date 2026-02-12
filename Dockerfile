@@ -25,4 +25,4 @@ RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 
 # Run gunicorn
-CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 run:app
+CMD exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 90 run:app

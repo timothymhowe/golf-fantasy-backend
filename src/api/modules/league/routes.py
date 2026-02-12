@@ -104,10 +104,10 @@ def scoreboard(uid, league_id):
         })
         
     except Exception as e:
-        logging.error(f"Error in scoreboard route: {str(e)}", exc_info=True)
+        logger.error("Error in scoreboard route: %s", e, exc_info=True)
         return jsonify({
             "status": "error",
-            "message": f"Server error: {str(e)}"
+            "message": "Internal server error"
         }), 500
        
 
@@ -127,14 +127,14 @@ def check_membership(uid):
         })
         
     except Exception as e:
-        logging.error(f"Error checking league membership: {str(e)}", exc_info=True)
+        logger.error("Error checking league membership: %s", e, exc_info=True)
         return jsonify({
-            "message": "Error checking league membership",
-            "error": str(e)
+            "error": "Internal server error"
         }), 500
 
 @league_bp.route('/member/<int:league_member_id>/pick-history', methods=['GET'])
-def get_member_picks(league_member_id):
+@require_auth
+def get_member_picks(uid, league_member_id):
     """Get pick history for a specific league member
     
     Args:
@@ -144,7 +144,7 @@ def get_member_picks(league_member_id):
         JSON response with pick history or error
     """
     try:
-        print('Getting pick history for league member', league_member_id)
+        logger.info("Getting pick history for league member %s", league_member_id)
         picks = get_league_member_pick_history(league_member_id)
         
         if picks is None:
@@ -155,8 +155,8 @@ def get_member_picks(league_member_id):
         return jsonify(picks), 200
         
     except Exception as e:
-        logger.error(f"Error getting pick history: {e}")
+        logger.error("Error getting pick history: %s", e, exc_info=True)
         return jsonify({
-            'error': f'Internal server error fetching pick history: {str(e)}'
+            'error': 'Internal server error'
         }), 500
         
