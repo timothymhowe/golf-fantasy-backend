@@ -44,7 +44,9 @@ def setup_credentials():
             logger.error(f"Credentials file not found at: {creds_env}")
             return None
 
-# Initialize credentials before anything else
+# TODO: load_dotenv() is called after this, so GOOGLE_APPLICATION_CREDENTIALS from .env
+# isn't available yet. Move load_dotenv() above setup_credentials() to fix the spurious
+# "No Google credentials found" warning.
 creds_path = setup_credentials()
 logger.info(f"Using credentials from: {'temporary file' if creds_path else 'default'}")
 
