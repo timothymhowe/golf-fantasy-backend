@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src/api", "tests"]
+markers = [
+    "integration: integration tests hitting flask routes via test client",
+]
