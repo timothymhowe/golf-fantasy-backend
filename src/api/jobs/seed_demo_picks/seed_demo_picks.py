@@ -22,7 +22,7 @@ from modules.tournament.functions import get_upcoming_tournament
 
 
 # The demo league ID — will be printed by setup_demo_league.py after first run
-DEMO_LEAGUE_ID = None  # TODO: set this after running setup_demo_league.py
+DEMO_LEAGUE_ID = 11
 
 # Firebase UID of the demo visitor user — their picks are controlled by the visitor
 DEMO_VISITOR_FIREBASE_ID = 'unF8WmS8KUgHwNHvpOAfKrIxQuE2'
