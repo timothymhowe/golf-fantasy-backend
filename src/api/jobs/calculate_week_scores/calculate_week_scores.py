@@ -290,9 +290,7 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
     print(f"Major Tournament: {'Yes (1.25x bonus)' if is_major else 'No'}")
     
     # Check tournament settings for duplicate picks
-    allow_duplicates = (db.session.query(ScheduleTournament.allow_duplicate_picks)
-        .filter(ScheduleTournament.tournament_id == tournament_id)
-        .scalar() or False)
+    allow_duplicates = schedule_tournament.allow_duplicate_picks
     
     # Get all league members for processing
     league_member_ids = db.session.query(LeagueMember.id).filter(
@@ -319,7 +317,7 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
             .filter(
                 ScheduleTournament.schedule_id == schedule_tournament.schedule_id,
                 ScheduleTournament.week_number < schedule_tournament.week_number,
-                not ScheduleTournament.allow_duplicate_picks,  # Ignore weeks that allowed duplicates
+                ~ScheduleTournament.allow_duplicate_picks,  # Ignore weeks that allowed duplicates
                 Pick.league_member_id.in_(league_member_ids),
                 Pick.is_most_recent).all())
     
@@ -422,14 +420,6 @@ def calculate_tournament_scores(tournament_id: int, league_id: int):
     print(f"- {len(picks)} total picks processed")
     print(f"- {duplicate_count} duplicate picks found")
     print(f"- {len(no_pick_members)} no-picks processed")
-    
-    if duplicate_count > 0:
-        print("\nDuplicate Pick Details:")
-        for member_id, golfers in member_pick_history.items():
-            duplicates = [g for g in golfers if list(golfers).count(g) > 1]
-            if duplicates:
-                member_name = next(p[2] for p in picks if p[1].id == member_id)
-                print(f"- {member_name}: Picked golfer(s) multiple times this season: {', '.join(map(str, duplicates))}")
     return True
 
 #------------------------------------------------------------------------------
