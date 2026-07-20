@@ -24,22 +24,27 @@ def find_similar_golfers(first_name, last_name):
     return similar_golfers
 
 def prompt_user_for_golfer(similar_golfers, first_name, last_name):
+    """Returns a Golfer to use, None to create a new entry, or False to skip."""
     print(f"No exact match found for {first_name} {last_name}.")
-    if similar_golfers:
-        print("Similar golfers found:")
-        for golfer in similar_golfers:
-            print(f"ID: {golfer.id}, Name: {golfer.first_name} {golfer.last_name}")
-        
-        selected_id = input("Enter the ID of the correct golfer, or type 'new' to create a new entry: ")
-        
-        if selected_id.lower() == 'new':
-            return None  # Indicate to create a new entry
-        else:
-            return Golfer.query.get(selected_id)
-    else:
+    if not similar_golfers:
         print("No similar golfers found.")
         create_new = input("Would you like to create a new entry? (y/n): ")
         return None if create_new.lower() == 'y' else False
+
+    print("Similar golfers found:")
+    for golfer in similar_golfers:
+        print(f"ID: {golfer.id}, Name: {golfer.first_name} {golfer.last_name}")
+
+    while True:
+        selected_id = input("Enter the ID of the correct golfer, 'new' to create a new entry, or 'skip': ")
+        if selected_id.lower() == 'new':
+            return None
+        if selected_id.lower() == 'skip':
+            return False
+        golfer = db.session.get(Golfer, selected_id)
+        if golfer:
+            return golfer
+        print(f"No golfer found with ID '{selected_id}'. Try again.")
 
 def update_tournament_entries(league_id: int):
     """Update tournament entries for upcoming tournament, keeping database clean"""
@@ -89,20 +94,29 @@ def update_tournament_entries(league_id: int):
         # Process each player in the field
         for player in data["field"]:
             dg_id = player.get("dg_id")
-            full_name = player["player_name"]
-            last_name, first_name = full_name.split(", ", 1)
+            raw_name = player["player_name"]
+            try:
+                last_name, first_name = raw_name.split(", ", 1)
+            except ValueError:
+                print(f"⚠ Skipping player with unparseable name: '{raw_name}'")
+                continue
+            display_name = f"{first_name} {last_name}"
 
             # Try to find golfer by DataGolf ID first, then by name
             existing_golfer = Golfer.query.filter(
                 db.or_(
                     Golfer.datagolf_id == dg_id,
-                    Golfer.full_name == f"{first_name} {last_name}"
+                    Golfer.full_name == display_name
                 )
             ).first()
-            
+
             if not existing_golfer:
                 similar_golfers = find_similar_golfers(first_name, last_name)
                 existing_golfer = prompt_user_for_golfer(similar_golfers, first_name, last_name)
+
+                if existing_golfer is False:
+                    print("No action taken.")
+                    continue
 
                 if existing_golfer is None:
                     # Create a new golfer entry
@@ -111,20 +125,19 @@ def update_tournament_entries(league_id: int):
                         datagolf_id=dg_id,
                         first_name=first_name,
                         last_name=last_name,
-                        full_name=full_name,
+                        full_name=display_name,
                     )
                     db.session.add(new_golfer)
-                    db.session.commit()
                     existing_golfer = new_golfer
-                    existing_golfer_ids.add(new_golfer.id)  # Add new ID to the set
-                elif existing_golfer is False:
-                    print("No action taken.")
-                    continue
+                    print(f"+ New golfer: {display_name} ({new_golfer.id}, dg_id={dg_id})")
 
-            elif not existing_golfer.datagolf_id and dg_id:
+            # Backfill the DataGolf ID on every path (auto match, manual match,
+            # or new) so the same golfer never re-prompts next week
+            if dg_id and not existing_golfer.datagolf_id:
                 existing_golfer.datagolf_id = dg_id
-                db.session.add(existing_golfer)
-                db.session.commit()
+                print(f"~ Assigned dg_id={dg_id} to {existing_golfer.full_name} ({existing_golfer.id})")
+            elif dg_id and existing_golfer.datagolf_id != dg_id:
+                print(f"⚠ {display_name}: DataGolf ID mismatch (db={existing_golfer.datagolf_id}, api={dg_id}) — leaving as-is")
 
             # Create new tournament golfer entry
             tg = TournamentGolfer(
