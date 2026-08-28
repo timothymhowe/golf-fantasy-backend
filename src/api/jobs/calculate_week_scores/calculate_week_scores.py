@@ -19,6 +19,7 @@ from models import (
     User, LeagueMemberTournamentScore, Schedule, ScheduleTournament, Tournament, League
 )
 from datetime import datetime
+import traceback
 
 #------------------------------------------------------------------------------
 # Score Preview Functions
@@ -206,6 +207,32 @@ def calculate_position_points(position: int, status: str) -> int:
 #------------------------------------------------------------------------------
 
 def calculate_tournament_scores(tournament_id: int, league_id: int):
+    """Score one tournament for one league. Never raises.
+
+    The worker below writes inside a single transaction: it deletes the
+    league's existing scores for this tournament and re-inserts them, then
+    commits once at the end. If anything raises partway through, the delete
+    rolls back with everything else, so no scores are lost.
+
+    Rolling back here is what makes the callers' per-item loops safe. Without
+    it the session stays in a failed transaction and, on Postgres, every
+    subsequent statement raises InFailedSqlTransaction -- so one bad
+    tournament would take out every league processed after it.
+
+    Returns:
+        bool: True if scores were committed, False if this tournament was
+        skipped or errored. Callers use this to continue with the next item.
+    """
+    try:
+        return _calculate_tournament_scores(tournament_id, league_id)
+    except Exception as e:
+        db.session.rollback()
+        print(f"ERROR scoring tournament {tournament_id} for league {league_id}: {e}")
+        traceback.print_exc()
+        return False
+
+
+def _calculate_tournament_scores(tournament_id: int, league_id: int):
     """
     Calculate and save scores for a tournament to the database.
     Handles duplicate picks, no-picks, and various player statuses.
