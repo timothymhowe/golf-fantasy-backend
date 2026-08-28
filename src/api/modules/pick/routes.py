@@ -24,10 +24,17 @@ def submit_my_pick(uid):
         logger.warning("User %s attempted to submit a pick for member %s", uid, league_member_id)
         return jsonify({'error': 'Not authorized'}), 403
 
-    pick = submit_pick(uid, tournament_id, golfer_id,league_member_id)
-    if pick is None:
+    try:
+        pick = submit_pick(uid, tournament_id, golfer_id, league_member_id)
+    except ValueError as e:
+        # Something the caller can fix: unknown tournament or golfer, or the
+        # tournament has already started. 400 (Bad Request), not 500.
+        logger.info("Rejected pick from user %s: %s", uid, e)
+        return jsonify({'error': str(e)}), 400
+    except Exception:
+        logger.error("Error submitting pick for user %s", uid, exc_info=True)
         return jsonify({'error': 'Failed to submit pick'}), 500
-    
+
     return jsonify(pick.to_dict()), 201
 
 

@@ -11,61 +11,58 @@ import logging
 logger = logging.getLogger(__name__)
 
 def submit_pick(uid, tournament_id, golfer_id, league_member_id):
-    # Ownership of league_member_id is enforced by the route before this runs.
+    """Record a pick for a league member.
+
+    Every reason to reject a pick is checked before anything is written, so a
+    caller that sees an exception knows nothing was saved. Raises ValueError
+    for anything the user can fix (unknown tournament or golfer, tournament
+    already under way); the route maps that to 400 (Bad Request).
+
+    Ownership of league_member_id is enforced by the route before this runs.
+    """
     tournament = Tournament.query.get(tournament_id)
+    if tournament is None:
+        raise ValueError(f"Tournament {tournament_id} not found")
 
-    # Combine date and time into a single datetime object
-    local_start_datetime = datetime.combine(
-        tournament.start_date, tournament.start_time
-    )
+    if Golfer.query.get(golfer_id) is None:
+        # Without this the bad id reaches the insert and surfaces as an
+        # IntegrityError, i.e. 500 (Internal Server Error) for a user typo.
+        raise ValueError(f"Golfer {golfer_id} not found")
 
-    # Convert local datetime to UTC
     local_tz = pytz.timezone(tournament.time_zone)
-    local_start_datetime = local_tz.localize(local_start_datetime)
+    local_start_datetime = local_tz.localize(
+        datetime.combine(tournament.start_date, tournament.start_time)
+    )
     utc_start_datetime = local_start_datetime.astimezone(pytz.utc)
-
-    # TODO: implement functionality for multiple leagues, for now just search the first league the user is in.
-    # league_member_id = league_member_ids[0][0]
 
     if utc_start_datetime <= datetime.utcnow().replace(tzinfo=pytz.utc):
         raise ValueError("Tournament has already started")
 
-    new_pick = Pick(
-        league_member_id=league_member_id,
-        tournament_id=tournament_id,
-        golfer_id=golfer_id,
-        year=utc_start_datetime.year,
-    )
+    # Everything below writes. Nothing above it does.
+    try:
+        previous_pick = Pick.query.filter_by(
+            league_member_id=league_member_id,
+            tournament_id=tournament_id,
+            is_most_recent=True,
+        ).first()
 
-    # Find the previous most recent pick and update its is_most_recent flag
-    previous_pick = Pick.query.filter_by(
-        league_member_id=new_pick.league_member_id,
-        tournament_id=new_pick.tournament_id,
-        is_most_recent=True,
-    ).first()
+        if previous_pick is not None:
+            previous_pick.is_most_recent = False
 
-    if previous_pick is not None:
-        previous_pick.is_most_recent = False
+        new_pick = Pick(
+            league_member_id=league_member_id,
+            tournament_id=tournament_id,
+            golfer_id=golfer_id,
+            year=utc_start_datetime.year,
+        )
+        db.session.add(new_pick)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.error("Failed to save pick for member %s", league_member_id, exc_info=True)
+        raise
 
-    # commit the session, save the pick
-    db.session.add(new_pick)
-    db.session.commit()
-
-    # Query the database for the new pick
-    saved_pick = Pick.query.filter_by(
-        league_member_id=new_pick.league_member_id,
-        tournament_id=new_pick.tournament_id,
-        golfer_id=new_pick.golfer_id,
-        is_most_recent=True,
-    ).first()
-    if saved_pick is None:
-        raise Exception("Failed to save pick to database, could not find saved pick.")
-
-    elif previous_pick is not None:
-        if previous_pick.timestamp_utc == saved_pick.timestamp_utc:
-            raise Exception("Failed to update previous pick, timestamp did not change.")
-
-    return saved_pick
+    return new_pick
 
 # Query for the most recent pick for the week by a user with a given UID
 def get_most_recent_pick(uid, tournament_id, league_member_id):
