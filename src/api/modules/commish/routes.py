@@ -72,12 +72,10 @@ def get_pick_data(uid, league_id):
     logger.info(f"Fetching manual pick data for league {league_id}")
     
     try:
-        # TODO: Uncomment once check_league_access is fixed — get_db_user_id raises
-        # ValueError instead of returning None, which causes this to block everyone.
-        # if not check_league_access(uid, league_id):
-        #     logger.warning(f"Unauthorized access attempt by user {uid} for league {league_id}. Notifying admin.")
-        #     return jsonify({'message': 'Unauthorized access'}), 403
-            
+        if not check_league_access(uid, league_id):
+            logger.warning(f"Unauthorized access attempt by user {uid} for league {league_id}.")
+            return jsonify({'message': 'Unauthorized access'}), 403
+
         data = get_manual_pick_data(league_id)
         if data is None:
             logger.error("Failed to fetch manual pick data")

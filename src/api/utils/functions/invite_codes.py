@@ -2,6 +2,7 @@ import random
 import unicodedata
 from datetime import datetime, timedelta
 from models import db, LeagueInviteCode, Golfer, League
+from utils.constants import ROLE_COMMISSIONER, ROLE_ADMIN, ROLE_MEMBER
 from utils.db_connector import init_db
 from flask import Flask
 
@@ -115,13 +116,19 @@ if __name__ == "__main__":
                     print("\nPlease enter a valid number.")
 
             # Get role ID
+            valid_roles = {
+                ROLE_COMMISSIONER: "Commissioner",
+                ROLE_ADMIN: "Admin",
+                ROLE_MEMBER: "Member",
+            }
+            role_prompt = ", ".join(f"{rid}: {name}" for rid, name in valid_roles.items())
             while True:
-                role_id = input("\nEnter role ID (2: Commissioner, 3: Member): ").strip()
+                role_id = input(f"\nEnter role ID ({role_prompt}): ").strip()
                 try:
                     role_id = int(role_id)
-                    if role_id in [2, 3]:
+                    if role_id in valid_roles:
                         break
-                    print("\nPlease enter 2 for Comissioner, 3 for Member.")
+                    print(f"\nPlease enter one of: {role_prompt}.")
                 except ValueError:
                     print("\nPlease enter a valid number.")
 

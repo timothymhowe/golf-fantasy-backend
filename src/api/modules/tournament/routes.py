@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 from modules.authentication.auth import require_auth
+from modules.authentication.access import require_own_league_member
 from .functions import (get_golfers_with_roster_and_picks, get_upcoming_roster,
     get_upcoming_tournament, get_most_recent_tournament, get_current_or_next_tournament)
 from datetime import datetime, timedelta
@@ -57,6 +58,7 @@ def upcoming_roster(uid):
 
 @tournament_bp.route('/dd/<int:league_member_id>', methods=['GET'])
 @require_auth
+@require_own_league_member
 def get_dd_data(uid, league_member_id):
     """
     Endpoint to get dropdown data for golfer selection.

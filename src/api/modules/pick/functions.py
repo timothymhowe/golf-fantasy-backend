@@ -4,7 +4,6 @@ from datetime import datetime
 import pytz
 from utils.db_connector import db
 
-from modules.user.functions import get_league_member_ids
 from data_aggregator.datagolf.rankings.aggregator import get_aggregated_stats
 from flask import jsonify
 import logging
@@ -12,10 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def submit_pick(uid, tournament_id, golfer_id, league_member_id):
-    league_member_ids = get_league_member_ids(uid)
-
-    # TODO: URGENT LETS NOT DO HARDCODING
-    # tournament_id = 124
+    # Ownership of league_member_id is enforced by the route before this runs.
     tournament = Tournament.query.get(tournament_id)
 
     # Combine date and time into a single datetime object

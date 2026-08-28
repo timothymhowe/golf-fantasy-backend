@@ -3,6 +3,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 # TODO: This is a hack to get the DB migration to work.  Fix this. when running the migration scripts, imports need to be relative to the root, so src.api.etc.etc.etc
 # TODO: Is it though?  Or does it just work.  when 
 from utils.db_connector import db
+from utils.constants import ROLE_MEMBER
 from datetime import datetime, time
 from sqlalchemy import DateTime
 from pytz import timezone, utc
@@ -63,7 +64,9 @@ class LeagueMember(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     league_id = db.Column(db.Integer, db.ForeignKey("league.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey("role.id"), nullable=False, default=0)
+    role_id = db.Column(
+        db.Integer, db.ForeignKey("role.id"), nullable=False, default=ROLE_MEMBER
+    )
 
 
 class Pick(db.Model):

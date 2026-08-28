@@ -1,7 +1,7 @@
 from functools import wraps
 from flask import request, jsonify
 import firebase_admin
-from firebase_admin import auth, credentials
+from firebase_admin import auth, credentials, exceptions as firebase_exceptions
 import os
 import json
 import logging
@@ -9,27 +9,51 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-# Get the key string
+# This module is imported transitively by app.py's blueprint imports, which run
+# before app.py calls load_dotenv(). Load it here so a .env-supplied key is
+# actually visible.
+load_dotenv()
+
 key_string = os.getenv('FIREBASE_ADMIN_SDK_KEY')
+if not key_string:
+    raise RuntimeError(
+        "FIREBASE_ADMIN_SDK_KEY is not set. The API cannot verify auth tokens "
+        "without it. Set it in the environment or .env before starting."
+    )
 
 try:
     key = json.loads(key_string)
 except json.JSONDecodeError as e:
-    logger.error("JSON Error at position %d: %s", e.pos, e.msg)
+    logger.error("FIREBASE_ADMIN_SDK_KEY is not valid JSON (position %d): %s", e.pos, e.msg)
     raise
 
 cred = credentials.Certificate(key)
 default_app = firebase_admin.initialize_app(cred)
 
 def verify_id_token(id_token):
+    """Resolve a Firebase ID token to a uid.
+
+    Returns None when the token is genuinely bad (malformed, expired, revoked,
+    disabled user) so the caller can answer 401.
+
+    Raises FirebaseError when Firebase itself could not be consulted -- most
+    often CertificateFetchError, a transient failure fetching Google's signing
+    certs. That is a 503, not a 401: the token may well be fine.
+
+    Note: in firebase-admin 6.x none of these exceptions subclass ValueError,
+    so the old `except ValueError` caught none of them and every expired token
+    surfaced as a 500.
+    """
     try:
-        # Verify the ID token and extract the user's UID
         decoded_token = auth.verify_id_token(id_token)
-        uid = decoded_token['uid']
-        return uid
-    except ValueError:
-        # The ID token is invalid
+        return decoded_token['uid']
+    except (auth.InvalidIdTokenError, auth.UserDisabledError, ValueError):
+        # InvalidIdTokenError covers ExpiredIdTokenError and RevokedIdTokenError.
+        # Bare ValueError is raised for a non-string token argument.
         return None
+    except firebase_exceptions.FirebaseError:
+        logger.error("Firebase could not verify the token", exc_info=True)
+        raise
 
 def require_auth(f):
     """
@@ -59,8 +83,11 @@ def require_auth(f):
         if bearer.lower() != 'bearer':
             return jsonify({'error': 'Invalid authorization header'}), 401
             
-        uid = verify_id_token(id_token)
-        
+        try:
+            uid = verify_id_token(id_token)
+        except firebase_exceptions.FirebaseError:
+            return jsonify({'error': 'Authentication temporarily unavailable'}), 503
+
         if uid is None:
             return jsonify({'error': 'Invalid token'}), 401
             

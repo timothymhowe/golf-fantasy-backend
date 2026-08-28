@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 from modules.authentication.auth import require_auth
+from modules.authentication.access import require_shared_league_member
 from modules.user.functions import get_league_member_ids
 from .functions import calculate_leaderboard, get_league_member_pick_history
 import logging
@@ -134,6 +135,7 @@ def check_membership(uid):
 
 @league_bp.route('/member/<int:league_member_id>/pick-history', methods=['GET'])
 @require_auth
+@require_shared_league_member
 def get_member_picks(uid, league_member_id):
     """Get pick history for a specific league member
     

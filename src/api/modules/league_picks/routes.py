@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 from modules.authentication.auth import require_auth
+from modules.authentication.access import require_league_member
 from .functions import get_current_week_picks
 import logging
 
@@ -9,6 +10,7 @@ league_picks_bp = Blueprint('league_picks', __name__)
 
 @league_picks_bp.route('/<int:league_id>', methods=['GET'])
 @require_auth
+@require_league_member
 def get_league_current_picks(uid, league_id):
     """
     Get the current picks for a league
