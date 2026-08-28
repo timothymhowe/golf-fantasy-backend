@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from modules.authentication.auth import require_auth
-from modules.authentication.access import require_shared_league_member
+from modules.authentication.access import require_shared_league_member, require_league_member
 from modules.user.functions import get_league_member_ids
 from .functions import calculate_leaderboard, get_league_member_pick_history
 import logging
@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 league_bp = Blueprint('league', __name__)
 
-# TODO: make sure that user is a member of the league before doing this.  future feature bby. 
 @league_bp.route('/scoreboard/<int:league_id>', methods=['GET'])
 @require_auth
+@require_league_member
 def scoreboard(uid, league_id):
     """
     Get the scoreboard for a specific league
@@ -39,36 +39,11 @@ def scoreboard(uid, league_id):
             }
         }
         
-        404 (Not Found): League not found or user not a member
+        403 (Forbidden): Caller is not a member of this league
+        404 (Not Found): No leaderboard data
         500 (Server Error): Unexpected error
     """
     try:
-        logging.info(f"Fetching scoreboard for league {league_id}")
-        
-        # Get user's league memberships to verify access
-        league_memberships = get_league_member_ids(uid)
-        
-        if not league_memberships:
-            logging.warning(f"No leagues found for user {uid}")
-            return jsonify({
-                "status": "error",
-                "message": "User not found in any leagues"
-            }), 404
-            
-        # Verify user is a member of the requested league
-        is_member = any(
-            league['league_id'] == league_id 
-            for league in league_memberships
-        )
-        
-        if not is_member:
-            logging.warning(f"User {uid} attempted to access unauthorized league {league_id}")
-            return jsonify({
-                "status": "error",
-                "message": "Not authorized to view this league"
-            }), 403
-            
-        # Get leaderboard data
         logging.info(f"Calculating leaderboard for league {league_id}")
         leaderboard_data = calculate_leaderboard(league_id)
         logging.info(f"Leaderboard data: {leaderboard_data}")

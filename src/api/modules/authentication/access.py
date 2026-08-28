@@ -20,10 +20,19 @@ from modules.user.functions import get_league_member_ids
 logger = logging.getLogger(__name__)
 
 
+def find_membership(uid, league_id):
+    """The user's membership row for this league, or None.
+
+    Routes that need the league_member_id use this instead of re-querying after
+    the decorator has already established access.
+    """
+    memberships = get_league_member_ids(uid) or []
+    return next((m for m in memberships if m['league_id'] == league_id), None)
+
+
 def user_in_league(uid, league_id):
     """True if the user is a member of this league."""
-    memberships = get_league_member_ids(uid) or []
-    return any(m['league_id'] == league_id for m in memberships)
+    return find_membership(uid, league_id) is not None
 
 
 def user_owns_league_member(uid, league_member_id):

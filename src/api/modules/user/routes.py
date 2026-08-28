@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 from modules.authentication.auth import require_auth
+from modules.authentication.access import require_league_member, find_membership
 from modules.user.functions import get_most_recent_pick, pick_history, submit_pick, get_league_member_ids, get_user_profile
 from modules.authentication.auth import default_app
 from modules.league.functions import get_league_member_pick_history
@@ -21,32 +22,16 @@ def get_my_pick(uid):
     return jsonify(pick.to_dict()), 200
 
 
-# TODO: check to make sure user is actually a member of the league before doing this, right now any member of any league could be authenticated and get the league info i think.  
 @user_bp.route('/history/<int:league_id>', methods=['GET'])
 @require_auth
+@require_league_member
 def get_my_history(uid, league_id):
     """Get pick history for the authenticated user's specified league"""
-    try:        
-        # Get user's league memberships
-        league_memberships = get_league_member_ids(uid)
-        
-        if not league_memberships:
-            return jsonify({
-                'error': 'User not found in any leagues'
-            }), 404
-            
-        # Check if the user is a member of the specified league
-        league_member = next(
-            (league for league in league_memberships if league['league_id'] == league_id), 
-            None
-        )
-        
-        if not league_member:
-            return jsonify({
-                'error': 'User is not a member of the specified league'
-            }), 404
-            
-        # Get pick history for the specified league
+    try:
+        # Access is already established by the decorator; this just resolves
+        # which of the caller's member rows belongs to this league.
+        league_member = find_membership(uid, league_id)
+
         picks = get_league_member_pick_history(league_member['league_member_id'])
         
         if picks is None:

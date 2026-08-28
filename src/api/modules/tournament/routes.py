@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from modules.authentication.auth import require_auth
-from modules.authentication.access import require_own_league_member
+from modules.authentication.access import require_own_league_member, require_league_member
 from .functions import (get_golfers_with_roster_and_picks, get_upcoming_roster,
     get_upcoming_tournament, get_most_recent_tournament, get_current_or_next_tournament)
 from datetime import datetime, timedelta
@@ -8,6 +8,7 @@ tournament_bp = Blueprint('tournament', __name__)
 
 @tournament_bp.route('/most-recent/<int:league_id>', methods=['GET'])
 @require_auth
+@require_league_member
 def most_recent_tournament(uid, league_id):
     tournament = get_most_recent_tournament(league_id)
     if tournament is None:
@@ -20,6 +21,7 @@ def most_recent_tournament(uid, league_id):
 # TODO: Add deprecation warnings and migrate frontend to new endpoint
 @tournament_bp.route('/upcoming/<int:league_id>', methods=['GET'])
 @require_auth
+@require_league_member
 def upcoming_tournament(uid, league_id):
     result = get_upcoming_tournament(league_id)
     
@@ -84,6 +86,7 @@ def get_dd_data(uid, league_member_id):
 
 @tournament_bp.route('/current/<int:league_id>', methods=['GET'])
 @require_auth
+@require_league_member
 def get_current_tournament_state(uid, league_id):
     """
     Get both recent and upcoming tournament data with state information.
