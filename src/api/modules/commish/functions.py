@@ -201,6 +201,24 @@ def get_manual_pick_data(league_id: int):
         return None
 
 
+def _mark_audit(audit_ref, status: str):
+    """Best-effort status update on an audit record.
+
+    Never raises: the pick has already been committed (or rolled back) by the
+    time this runs, and failing to update the status must not change that
+    outcome. A record left at 'pending' is the signal to go reconcile.
+    """
+    if audit_ref is None:
+        return
+    try:
+        audit_ref.update({'status': status})
+    except Exception:
+        logger.error(
+            "Could not mark audit record %s as '%s'; it will remain 'pending'",
+            audit_ref.id, status, exc_info=True
+        )
+
+
 def create_manual_pick(league_member_id: int, tournament_id: int, golfer_id: str, commissioner_uid: str):
     """Create a manual pick entry for a league member and log the action to Firebase.
     
@@ -213,6 +231,7 @@ def create_manual_pick(league_member_id: int, tournament_id: int, golfer_id: str
     Returns:
         bool: True if successful, False otherwise
     """
+    audit_ref = None
     try:
         # Get all the necessary information first
         tournament = Tournament.query.get(tournament_id)
@@ -249,7 +268,15 @@ def create_manual_pick(league_member_id: int, tournament_id: int, golfer_id: str
             is_most_recent=True
         ).first()
 
-        # Log the change to Firebase first
+        # The golfer row for a previous pick should always exist, but a missing
+        # one should not be able to take down a commissioner override.
+        previous_golfer = Golfer.query.get(previous_pick.golfer_id) if previous_pick else None
+
+        # Written BEFORE the database change on purpose. This is an
+        # accountability log: an entry with no matching pick can be found by
+        # reconciling against the Pick table, but a pick with no entry cannot
+        # be found at all -- Pick records no provenance, so there is nothing
+        # marking a row as manually set. Never allow an unaudited change.
         firestore_db = firestore.client()
         audit_ref = firestore_db.collection('manual_pick_audit').document()
         
@@ -269,18 +296,22 @@ def create_manual_pick(league_member_id: int, tournament_id: int, golfer_id: str
             },
             'pick': {
                 'old_golfer': {
-                    'id': previous_pick.golfer_id if previous_pick else None,
-                    'name': Golfer.query.get(previous_pick.golfer_id).full_name if previous_pick else None
+                    'id': previous_pick.golfer_id,
+                    'name': previous_golfer.full_name if previous_golfer else None
                 } if previous_pick else None,
                 'new_golfer': {
                     'id': golfer.id,
                     'name': golfer.full_name
                 }
             },
-            'pick_timestamp': pick_timestamp.isoformat()
+            'pick_timestamp': pick_timestamp.isoformat(),
+            # The record is written before the commit, so it states intent, not
+            # fact. Readers should treat anything still 'pending' as unconfirmed.
+            'status': 'pending'
         }
 
-        # Write to Firebase
+        # Write to Firebase. Inside the try on purpose: if the audit cannot be
+        # written, the pick is not made either.
         audit_ref.set(audit_data)
         logger.info(f"Audit log created with ID: {audit_ref.id}")
 
@@ -304,11 +335,13 @@ def create_manual_pick(league_member_id: int, tournament_id: int, golfer_id: str
         
         db.session.add(new_pick)
         db.session.commit()
-        
+
+        _mark_audit(audit_ref, 'committed')
         logger.info(f"Successfully created pick for member {league_member_id}")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error creating manual pick: {str(e)}", exc_info=True)
         db.session.rollback()
+        _mark_audit(audit_ref, 'failed')
         return False
