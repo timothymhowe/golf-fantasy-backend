@@ -88,6 +88,22 @@ def populate_schedule_from_csv(file_path, schedule_name, year):
         print("Nothing was written. Fix the CSV and re-run.")
         return False
 
+    weeks = [item['week_number'] for item in schedule_items]
+    dupe_weeks = sorted(w for w, n in Counter(weeks).items() if n > 1)
+    if dupe_weeks:
+        print("\nAborting: the CSV assigns more than one tournament to the same week:")
+        for w in dupe_weeks:
+            print(f"  - week {w}")
+        print("Nothing was written. Fix the CSV and re-run.")
+        return False
+
+    gaps = [w for w in range(min(weeks), max(weeks) + 1) if w not in set(weeks)]
+    if gaps:
+        print(f"\nAborting: weeks {min(weeks)}-{max(weeks)} have {len(gaps)} gap(s): {gaps}")
+        print("A schedule with a missing week cannot be scored for that week.")
+        print("Nothing was written. Fix the CSV and re-run.")
+        return False
+
     # One query rather than one per row.
     found_ids = {t.id for t in Tournament.query.filter(Tournament.id.in_(tournament_ids)).all()}
     missing = [tid for tid in tournament_ids if tid not in found_ids]

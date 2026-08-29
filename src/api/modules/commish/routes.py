@@ -27,8 +27,18 @@ def check_league_access(firebase_uid: str, league_id: int) -> bool:
         if not member:
             return False
             
-        # Check if user is commissioner or admin
-        return member.role_id in [ROLE_COMMISSIONER, ROLE_ADMIN]
+        # Check if user is commissioner or admin. Seed scripts disagree on role
+        # ids -- 02_add_basic_data.py uses 1/2/3 while 05_setup_leagues.py
+        # creates Role(id=0, name="MEMBER") -- so log the actual value when
+        # denying, or a mis-seeded commissioner row is an unexplainable 403.
+        allowed = member.role_id in [ROLE_COMMISSIONER, ROLE_ADMIN]
+        if not allowed:
+            logger.warning(
+                "League access denied: user %s has role_id=%s in league %s; "
+                "commissioner access requires %s or %s",
+                firebase_uid, member.role_id, league_id, ROLE_COMMISSIONER, ROLE_ADMIN
+            )
+        return allowed
         
     except Exception as e:
         logger.error(f"Error checking league access: {str(e)}", exc_info=True)

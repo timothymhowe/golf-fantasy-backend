@@ -17,6 +17,7 @@ Usage:
 """
 
 import argparse
+import sys
 import logging
 from datetime import date
 
@@ -139,7 +140,7 @@ def run(tournament_id=None, league_id=None):
 
     if not leagues:
         print("  No active leagues with schedules found. Exiting.\n")
-        return
+        return True   # nothing to score is not a failure
 
     for league in leagues:
         print(f"  - {league.name} (ID {league.id})")
@@ -178,7 +179,7 @@ def run(tournament_id=None, league_id=None):
 
     if not pairs:
         print("\n  Nothing to score — all tournaments are up to date.\n")
-        return
+        return True   # nothing to score is not a failure
     print()
 
     # ── Step 3: Fetch results from DataGolf ──────────────────────
@@ -206,6 +207,7 @@ def run(tournament_id=None, league_id=None):
     scored_count = 0
     skipped_count = 0
 
+
     for i, (league, tid) in enumerate(pairs, 1):
         t_name = _tournament_name(tid)
 
@@ -231,6 +233,11 @@ def run(tournament_id=None, league_id=None):
     print("=" * 60)
     print()
 
+    # Returned so __main__ can exit non-zero. calculate_tournament_scores no
+    # longer raises, so without this a run where every tournament failed would
+    # still exit 0 and look healthy to a scheduler.
+    return skipped_count == 0
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -250,4 +257,6 @@ if __name__ == "__main__":
     init_db(app)
 
     with app.app_context():
-        run(tournament_id=args.tournament_id, league_id=args.league_id)
+        all_scored = run(tournament_id=args.tournament_id, league_id=args.league_id)
+
+    sys.exit(0 if all_scored else 1)

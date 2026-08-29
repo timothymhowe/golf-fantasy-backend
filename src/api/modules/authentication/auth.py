@@ -45,7 +45,11 @@ def verify_id_token(id_token):
     surfaced as a 500.
     """
     try:
-        decoded_token = auth.verify_id_token(id_token)
+        # check_revoked=True is what actually makes RevokedIdTokenError and
+        # UserDisabledError reachable. With the default (False) a signed-out or
+        # disabled user's token stays valid until it expires on its own, and the
+        # handler below is dead code. Costs one Firebase lookup per request.
+        decoded_token = auth.verify_id_token(id_token, check_revoked=True)
         return decoded_token['uid']
     except (auth.InvalidIdTokenError, auth.UserDisabledError, ValueError):
         # InvalidIdTokenError covers ExpiredIdTokenError and RevokedIdTokenError.

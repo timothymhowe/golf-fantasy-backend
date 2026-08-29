@@ -11,11 +11,28 @@ pick_bp = Blueprint('pick', __name__)
 @pick_bp.route('/submit', methods=['POST'])
 @require_auth
 def submit_my_pick(uid):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     league_member_id = data.get('league_member_id')
     tournament_id = data.get('tournament_id')
     golfer_id = data.get('golfer_id')
     logger.info("Pick submit - tournament: %s, golfer: %s, member: %s", tournament_id, golfer_id, league_member_id)
+
+    # Missing or unusable fields are the caller's to fix: 400 (Bad Request).
+    # Answering 403 (Forbidden) here would be wrong -- absent is not denied.
+    missing = [k for k in ('league_member_id', 'tournament_id', 'golfer_id') if data.get(k) is None]
+    if missing:
+        return jsonify({'error': f"Missing required field(s): {', '.join(missing)}"}), 400
+
+    try:
+        league_member_id = int(league_member_id)
+        tournament_id = int(tournament_id)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'league_member_id and tournament_id must be integers'}), 400
+
+    # golfer.id is String(9). A JSON number reaching the query raises
+    # ProgrammingError on Postgres ("character varying = integer"), so coerce
+    # here rather than letting a caller-controlled type reach the database.
+    golfer_id = str(golfer_id)
 
     # league_member_id arrives in the request body, so the URL-based decorators
     # do not apply here. Without this check any authenticated user could submit

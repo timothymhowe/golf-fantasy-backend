@@ -15,6 +15,7 @@ Usage:
 """
 
 import argparse
+import sys
 from datetime import date
 
 from flask import Flask
@@ -29,10 +30,10 @@ def run(league_id):
     league = db.session.get(League, league_id)
     if league is None:
         print(f"League {league_id} not found. Exiting.")
-        return
+        return False  # bad argument -- a real failure
     if league.schedule_id is None:
         print(f"League {league.name} (ID {league_id}) has no schedule. Exiting.")
-        return
+        return False  # misconfigured league -- a real failure
 
     print("\n" + "=" * 60)
     print(f"  RESCORE SEASON — {league.name} (ID {league_id})")
@@ -51,7 +52,7 @@ def run(league_id):
 
     if not rows:
         print("  No ended tournaments in this league's schedule. Exiting.\n")
-        return
+        return True   # nothing to rescore is not a failure
 
     print(f"  Found {len(rows)} ended tournament(s) to rescore:\n")
     for st, t in rows:
@@ -77,6 +78,8 @@ def run(league_id):
     print("=" * 60)
     print()
 
+    return not failed
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -92,4 +95,6 @@ if __name__ == "__main__":
     init_db(app)
 
     with app.app_context():
-        run(league_id=args.league_id)
+        all_rescored = run(league_id=args.league_id)
+
+    sys.exit(0 if all_rescored else 1)

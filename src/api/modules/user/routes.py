@@ -31,6 +31,12 @@ def get_my_history(uid, league_id):
         # Access is already established by the decorator; this just resolves
         # which of the caller's member rows belongs to this league.
         league_member = find_membership(uid, league_id)
+        if league_member is None:
+            # The decorator already established membership, so this means the
+            # second lookup failed rather than that access was denied.
+            logger.error("Membership lookup failed for user %s in league %s after "
+                         "the access check passed", uid, league_id)
+            return jsonify({'error': 'Internal server error'}), 500
 
         picks = get_league_member_pick_history(league_member['league_member_id'])
         

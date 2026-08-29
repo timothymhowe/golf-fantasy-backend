@@ -23,8 +23,14 @@ logger = logging.getLogger(__name__)
 def find_membership(uid, league_id):
     """The user's membership row for this league, or None.
 
-    Routes that need the league_member_id use this instead of re-querying after
-    the decorator has already established access.
+    For routes that need the league_member_id, not just a yes/no. Note this
+    repeats the lookup the decorator already did -- the decorator discards its
+    result rather than stashing it, so a route using both pays for two
+    membership joins. Acceptable at current traffic; revisit if it matters.
+
+    Returns None both when the user is not a member and when the underlying
+    lookup failed, since get_league_member_ids swallows its errors. Callers
+    must handle None even directly behind @require_league_member.
     """
     memberships = get_league_member_ids(uid) or []
     return next((m for m in memberships if m['league_id'] == league_id), None)
