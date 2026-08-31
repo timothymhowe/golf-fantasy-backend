@@ -138,13 +138,8 @@ class Tournament(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sportcontent_api_id = db.Column(db.Integer, unique=True)
     sportcontent_api_tour_id = db.Column(db.Integer, unique=False, default=2)
-    # NOT unique. DataGolf reuses one event_id across years -- 37 of the 54
-    # event ids in the database span two seasons -- while a Tournament row is
-    # one event in one year. The unique=True that used to be here never existed
-    # in the MySQL schema, so nothing enforced it; it would have been created,
-    # and immediately failed, the first time the schema was built from these
-    # models. The correct constraint is unique(datagolf_id, year), which cannot
-    # be added until the remaining duplicate rows are cleared.
+    # Not unique on its own: DataGolf reuses one event_id across seasons, and
+    # 37 of the 54 event ids here span two years. See the TODO below.
     datagolf_id = db.Column(db.Integer)
     year = db.Column(db.Integer, nullable=False)
     tournament_name = db.Column(db.String(100), nullable=False)
@@ -163,7 +158,13 @@ class Tournament(db.Model):
     has_cut = db.Column(db.Boolean, nullable=False, default=False)
     is_team_event = db.Column(db.Boolean, nullable=False, default=False)
 
-
+    # TODO: add UniqueConstraint('datagolf_id', 'year') during the Postgres
+    # migration. One row per event per season is the real grain -- DataGolf's
+    # event_id identifies the event, not the instance, so it repeats yearly.
+    # The data already satisfies it (verified 2026-08-31: zero duplicate pairs
+    # after removing the tour-1 copies, tournament ids 112/115/116/118).
+    # NULL datagolf_id rows are unaffected -- MySQL and Postgres both treat
+    # NULLs as distinct in a unique index.
 
     # TODO: Does this make sense to do?  I'm not sure if this is the best way to do this.
     @hybrid_property
