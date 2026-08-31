@@ -40,14 +40,22 @@ def submit_pick(uid, tournament_id, golfer_id, league_member_id):
 
     # Everything below writes. Nothing above it does.
     try:
-        previous_pick = Pick.query.filter_by(
+        # Bulk UPDATE, not .first() + flip one object. A member who already has
+        # two rows flagged is_most_recent -- from an earlier double-submit race
+        # -- would otherwise stay at two forever: one gets demoted, one gets
+        # inserted, and the count never comes down. Demoting all of them means
+        # every submission heals the row set it touches.
+        demoted = Pick.query.filter_by(
             league_member_id=league_member_id,
             tournament_id=tournament_id,
             is_most_recent=True,
-        ).first()
+        ).update({'is_most_recent': False}, synchronize_session=False)
 
-        if previous_pick is not None:
-            previous_pick.is_most_recent = False
+        if demoted > 1:
+            logger.warning(
+                "Member %s had %s picks flagged most-recent for tournament %s; "
+                "demoted all of them", league_member_id, demoted, tournament_id
+            )
 
         new_pick = Pick(
             league_member_id=league_member_id,
