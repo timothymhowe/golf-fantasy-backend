@@ -138,7 +138,14 @@ class Tournament(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sportcontent_api_id = db.Column(db.Integer, unique=True)
     sportcontent_api_tour_id = db.Column(db.Integer, unique=False, default=2)
-    datagolf_id = db.Column(db.Integer, unique=True)
+    # NOT unique. DataGolf reuses one event_id across years -- 37 of the 54
+    # event ids in the database span two seasons -- while a Tournament row is
+    # one event in one year. The unique=True that used to be here never existed
+    # in the MySQL schema, so nothing enforced it; it would have been created,
+    # and immediately failed, the first time the schema was built from these
+    # models. The correct constraint is unique(datagolf_id, year), which cannot
+    # be added until the remaining duplicate rows are cleared.
+    datagolf_id = db.Column(db.Integer)
     year = db.Column(db.Integer, nullable=False)
     tournament_name = db.Column(db.String(100), nullable=False)
     tournament_format = db.Column(db.String(100), nullable=False, default="stroke")
